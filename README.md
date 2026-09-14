@@ -4,53 +4,96 @@ A local-first investment research and portfolio intelligence platform.
 
 ## Product vision
 
-Research. Challenge. Quantify. Decide.
+**Research. Challenge. Quantify. Decide.**
 
-The application is designed to combine market data, fundamentals, news, macro context, quantitative signals, valuation, portfolio risk, and competing investment theses into a structured research workflow.
+The product is designed as an investment research desk rather than a blind trading bot. It combines market data, fundamentals, quantitative signals, valuation, portfolio risk, news/macro context, and competing investment theses into one decision workflow.
 
-## Current stage
+## Current stage — V1 working engine
 
-V1 foundation: application structure, market abstraction, AI research workflow, and portfolio domain model. No live trading or automated order execution is included.
+The first working vertical slice is now in place:
 
-## Planned markets
+- React/Vite command center connected to FastAPI.
+- Deterministic investment scanner with transparent factor scoring.
+- Asset analysis endpoint with bull thesis, bear thesis, risks, and invalidation conditions.
+- Ghana Stock Exchange, US equities, and European equities represented in the initial dataset.
+- Searchable opportunity table and clickable Investment Committee analysis panel.
+- GitHub Actions CI for frontend build and backend compilation.
 
-- Ghana Stock Exchange (GSE)
-- US equities
-- European equities
-- ETFs / funds
-- Indices
-- FX
-- Commodities
-- Additional African exchanges through adapters
+**Important:** current values are a deterministic demo dataset. No live market feed, broker credential, or order execution is connected.
 
 ## Architecture
 
 ```text
-Frontend (React + Vite)
-        |
-        v
-Backend/API (Python + FastAPI)
-        |
-        +--> Market data adapters
-        +--> Fundamentals
-        +--> News / macro
-        +--> Quantitative analytics
-        +--> Valuation engine
-        +--> Risk / portfolio engine
-        +--> AI research agents
-        |
-        v
-Local database (SQLite)
+React + Vite
+    |
+    v
+FastAPI API
+    |
+    +--> Asset / market adapters
+    +--> Quant & scoring engine
+    +--> Valuation engine
+    +--> Risk / portfolio engine
+    +--> News / macro intelligence
+    +--> AI research agents
+    |
+    v
+SQLite / persistent portfolio data
 ```
 
-## Principles
+## Investment workflow
 
-1. Deterministic calculations stay in code.
-2. AI is used for synthesis, research, debate, explanations, and unstructured information.
-3. Every investment thesis must include opposing evidence and explicit invalidation conditions.
-4. No secrets or API keys are committed to Git.
-5. Live trading is out of scope for the initial releases; paper trading comes first.
+```text
+SCAN
+  -> SCORE
+  -> FUNDAMENTAL REVIEW
+  -> BULL vs BEAR CHALLENGE
+  -> VALUATION
+  -> RISK CHECK
+  -> INVESTMENT COMMITTEE
+  -> HUMAN DECISION
+```
 
-## Getting started
+The architecture deliberately keeps deterministic calculations in code and reserves AI for synthesis, research, debate, explanations, and unstructured information.
 
-The initial scaffold will be added in the first implementation commit.
+## API
+
+Run the backend from `backend/`:
+
+```bash
+python -m venv .venv
+# Windows PowerShell: .venv\\Scripts\\Activate.ps1
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+Useful endpoints:
+
+- `GET /api/health` — service health.
+- `GET /api/assets` — supported demo assets.
+- `GET /api/scanner` — ranked opportunities.
+- `GET /api/assets/{symbol}/analysis` — investment committee analysis.
+- `GET /api/dashboard` — command-center payload.
+
+## Frontend
+
+Run the frontend from `frontend/`:
+
+```bash
+npm install
+npm run dev
+```
+
+By default the frontend calls `http://localhost:8000`. Set `VITE_API_BASE_URL` when the API is hosted elsewhere.
+
+## Planned markets
+
+Ghana Stock Exchange (GSE), US equities, European equities, ETFs/funds, indices, FX, commodities, and additional African exchanges through adapters.
+
+## Security principles
+
+- Never commit API keys, broker credentials, or personal portfolio secrets.
+- Keep secrets server-side.
+- Use least-privilege credentials for CI and integrations.
+- Validate market data before it reaches scoring or portfolio logic.
+- Paper trading and backtesting precede any future broker integration.
