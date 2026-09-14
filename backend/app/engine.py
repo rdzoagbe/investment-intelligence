@@ -4,6 +4,7 @@ from dataclasses import asdict
 from math import isfinite
 
 from .data import ASSETS, AssetSnapshot, get_asset
+from .fundamentals import fundamentals_for_asset
 from .market_data import live_quotes
 from .risk import position_risk
 from .valuation import scenario_values
@@ -14,12 +15,15 @@ def clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
 
 
 def score_asset(asset: AssetSnapshot, quote: dict[str, object] | None = None) -> dict[str, object]:
-    """Score an asset deterministically while using live quotes for price fields."""
     price = float(quote["price"]) if quote and isinstance(quote.get("price"), (int, float)) else asset.price
     change_pct = float(quote["change_pct"]) if quote and isinstance(quote.get("change_pct"), (int, float)) else asset.change_pct
-    fundamental = clamp(35 + asset.operating_margin_pct * 0.55 + asset.free_cash_flow_margin_pct * 0.35 + max(asset.revenue_growth_pct, 0) * 0.8 - max(asset.net_debt_to_ebitda, 0) * 7)
-    growth = clamp(45 + asset.revenue_growth_pct * 2.1)
-    cash_flow = clamp(35 + asset.free_cash_flow_margin_pct * 1.35)
+    fundamentals = fundamentals_for_asset(asset)
+    growth_input = fundamentals.revenue_growth_pct if fundamentals.revenue_growth_pct is not None else asset.revenue_growth_pct
+    margin_input = fundamentals.operating_margin_pct if fundamentals.operating_margin_pct is not None else asset.operating_margin_pct
+    fcf_input = fundamentals.free_cash_flow_margin_pct if fundamentals.free_cash_flow_margin_pct is not None else asset.free_cash_flow_margin_pct
+    fundamental = clamp(35 + margin_input * 0.55 + fcf_input * 0.35 + max(growth_input, 0) * 0.8 - max(asset.net_debt_to_ebitda, 0) * 7)
+    growth = clamp(45 + growth_input * 2.1)
+    cash_flow = clamp(35 + fcf_input * 1.35)
     balance_sheet = clamp(92 - max(asset.net_debt_to_ebitda, 0) * 18)
     valuation = clamp(108 - asset.pe_ratio * 1.15)
     momentum = clamp(asset.momentum_score)
@@ -30,6 +34,7 @@ def score_asset(asset: AssetSnapshot, quote: dict[str, object] | None = None) ->
         "symbol": asset.symbol, "name": asset.name, "market": asset.market, "currency": asset.currency,
         "price": price, "change_pct": change_pct, "score": composite, "verdict": verdict,
         "breakdown": {"fundamental": round(fundamental), "growth": round(growth), "cash_flow": round(cash_flow), "balance_sheet": round(balance_sheet), "valuation": round(valuation), "momentum": round(momentum), "sentiment": round(sentiment)},
+        "fundamental_inputs": {"revenue_growth_pct": round(growth_input, 2), "operating_margin_pct": round(margin_input, 2), "free_cash_flow_margin_pct": round(fcf_input, 2), "source": fundamentals.source, "status": fundamentals.status},
         "macro_sensitivity": asset.macro_sensitivity,
         "price_source": str(quote.get("provider")) if quote else "Internal deterministic dataset",
         "price_status": str(quote.get("status")) if quote else "DEMO",
@@ -55,7 +60,7 @@ def analyze_asset(symbol: str) -> dict[str, object] | None:
     return {
         **scored,
         "thesis": {
-            "bull": [f"Revenue growth is {asset.revenue_growth_pct:.1f}% in the model dataset.", f"Operating margin is {asset.operating_margin_pct:.1f}% and free-cash-flow margin is {asset.free_cash_flow_margin_pct:.1f}%.", asset.catalysts[0]],
+            "bull": [f"Revenue growth is {scored['fundamental_inputs']['revenue_growth_pct']:.1f}% from the tracked fundamental source.", f"Operating margin is {scored['fundamental_inputs']['operating_margin_pct']:.1f}% and free-cash-flow margin is {scored['fundamental_inputs']['free_cash_flow_margin_pct']:.1f}%.", asset.catalysts[0]],
             "bear": [f"A P/E of {asset.pe_ratio:.1f} leaves valuation sensitivity in the thesis.", asset.risks[0], asset.risks[1]],
             "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
             "market_question": "What does the market already know that this score may be missing?",
