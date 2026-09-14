@@ -7,9 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .data import ASSETS
 from .engine import analyze_asset, scanner
+from .fundamentals import fundamentals_for_symbol
 from .market_data import live_quotes, market_data_status
 
-app = FastAPI(title="Investment Intelligence API", version="0.4.0")
+app = FastAPI(title="Investment Intelligence API", version="0.5.0")
 
 cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True, allow_methods=["GET"], allow_headers=["*"])
@@ -30,6 +31,14 @@ def market_data() -> dict[str, object]:
     return {"quotes": live_quotes(), "status": market_data_status()}
 
 
+@app.get("/api/assets/{symbol}/fundamentals")
+def asset_fundamentals(symbol: str) -> dict[str, object]:
+    result = fundamentals_for_symbol(symbol)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Asset {symbol.upper()} not found")
+    return {"symbol": result.symbol, "fiscal_year": result.fiscal_year, "revenue": result.revenue, "operating_income": result.operating_income, "free_cash_flow": result.free_cash_flow, "diluted_eps": result.diluted_eps, "total_debt": result.total_debt, "cash": result.cash, "source": result.source, "status": result.status}
+
+
 @app.get("/api/scanner")
 def investment_scanner(
     limit: int = Query(default=20, ge=1, le=100),
@@ -44,8 +53,7 @@ def investment_scanner(
     if verdict:
         ranked = [item for item in ranked if str(item["verdict"]).upper() == verdict.strip().upper()]
     ranked = [item for item in ranked if float(item["score"]) >= min_score]
-    page = ranked[offset:offset + limit]
-    return {"items": page, "total": len(ranked), "offset": offset, "limit": limit}
+    return {"items": ranked[offset:offset + limit], "total": len(ranked), "offset": offset, "limit": limit}
 
 
 @app.get("/api/assets/{symbol}/analysis")
@@ -62,24 +70,13 @@ def dashboard() -> dict[str, object]:
     top = ranked[0]
     quotes = live_quotes()
     live_by_symbol = {q["symbol"]: q for q in quotes if q["status"] == "LIVE"}
-    markets = [
-        {"name": "S&P 500", "value": 5842, "change_pct": 0.72},
-        {"name": "NASDAQ", "value": 18771, "change_pct": 0.91},
-        {"name": "DAX", "value": 23456, "change_pct": 0.48},
-        {"name": "EUR/USD", "value": 1.102, "change_pct": 0.18},
-        {"name": "Gold", "value": 2534, "change_pct": 0.36},
-    ]
     return {
         "portfolio": {"value": 12450, "total_return_pct": 12.4, "benchmark_return_pct": 9.8, "risk_level": "Moderate", "volatility_pct": 14.8, "cash_pct": 17.0, "cash_value": 2117},
-        "markets": markets,
+        "markets": [{"name": "S&P 500", "value": 5842, "change_pct": 0.72}, {"name": "NASDAQ", "value": 18771, "change_pct": 0.91}, {"name": "DAX", "value": 23456, "change_pct": 0.48}, {"name": "EUR/USD", "value": 1.102, "change_pct": 0.18}, {"name": "Gold", "value": 2534, "change_pct": 0.36}],
         "scanner": ranked,
         "market_quotes": quotes,
         "scanner_meta": {"universe_size": len(ASSETS), "live_price_coverage": len(live_by_symbol)},
         "committee": {"symbol": top["symbol"], "verdict": top["verdict"], "score": top["score"], "question": "What does the market already know that this score may be missing?"},
-        "insights": [
-            {"type": "MACRO", "text": "Central-bank expectations remain a key driver for long-duration growth assets."},
-            {"type": "SECTOR", "text": "AI infrastructure demand continues to influence semiconductor and cloud valuations."},
-            {"type": "RISK", "text": "The scanner separates deterministic scoring from narrative analysis so assumptions remain inspectable."},
-        ],
+        "insights": [{"type": "MACRO", "text": "Central-bank expectations remain a key driver for long-duration growth assets."}, {"type": "SECTOR", "text": "AI infrastructure demand continues to influence semiconductor and cloud valuations."}, {"type": "RISK", "text": "The scanner separates deterministic scoring from narrative analysis so assumptions remain inspectable."}],
         "data_status": "LIVE_MARKET_DATA" if live_by_symbol else "DEMO_DATASET",
     }
