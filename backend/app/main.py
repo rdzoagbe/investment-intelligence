@@ -7,8 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .data import ASSETS
 from .engine import analyze_asset, scanner
+from .market_data import live_quotes, market_data_status
 
-app = FastAPI(title="Investment Intelligence API", version="0.2.0")
+app = FastAPI(title="Investment Intelligence API", version="0.3.0")
 
 cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
 app.add_middleware(
@@ -28,14 +29,14 @@ def health() -> dict[str, str]:
 @app.get("/api/assets")
 def assets() -> list[dict[str, str]]:
     return [
-        {
-            "symbol": asset.symbol,
-            "name": asset.name,
-            "market": asset.market,
-            "currency": asset.currency,
-        }
+        {"symbol": asset.symbol, "name": asset.name, "market": asset.market, "currency": asset.currency}
         for asset in ASSETS
     ]
+
+
+@app.get("/api/market-data")
+def market_data() -> dict[str, object]:
+    return {"quotes": live_quotes(), "status": market_data_status()}
 
 
 @app.get("/api/scanner")
@@ -55,6 +56,18 @@ def asset_analysis(symbol: str) -> dict[str, object]:
 def dashboard() -> dict[str, object]:
     ranked = scanner(5)
     top = ranked[0]
+    quotes = live_quotes()
+    live_by_symbol = {quote["symbol"]: quote for quote in quotes if quote["status"] == "LIVE"}
+
+    markets = [
+        {"name": "S&P 500", "value": 5842, "change_pct": 0.72},
+        {"name": "NASDAQ", "value": 18771, "change_pct": 0.91},
+        {"name": "DAX", "value": 23456, "change_pct": 0.48},
+        {"name": "EUR/USD", "value": 1.102, "change_pct": 0.18},
+        {"name": "Gold", "value": 2534, "change_pct": 0.36},
+    ]
+    data_status = "LIVE_MARKET_DATA" if live_by_symbol else "DEMO_DATASET"
+
     return {
         "portfolio": {
             "value": 12450,
@@ -65,14 +78,9 @@ def dashboard() -> dict[str, object]:
             "cash_pct": 17.0,
             "cash_value": 2117,
         },
-        "markets": [
-            {"name": "S&P 500", "value": 5842, "change_pct": 0.72},
-            {"name": "NASDAQ", "value": 18771, "change_pct": 0.91},
-            {"name": "DAX", "value": 23456, "change_pct": 0.48},
-            {"name": "EUR/USD", "value": 1.102, "change_pct": 0.18},
-            {"name": "Gold", "value": 2534, "change_pct": 0.36},
-        ],
+        "markets": markets,
         "scanner": ranked,
+        "market_quotes": quotes,
         "committee": {
             "symbol": top["symbol"],
             "verdict": top["verdict"],
@@ -84,5 +92,5 @@ def dashboard() -> dict[str, object]:
             {"type": "SECTOR", "text": "AI infrastructure demand continues to influence semiconductor and cloud valuations."},
             {"type": "RISK", "text": "The scanner separates deterministic scoring from narrative analysis so assumptions remain inspectable."},
         ],
-        "data_status": "DEMO_DATASET",
+        "data_status": data_status,
     }
