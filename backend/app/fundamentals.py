@@ -19,12 +19,14 @@ class FundamentalSnapshot:
     diluted_eps: float | None
     total_debt: float | None
     cash: float | None
+    revenue_growth_pct: float | None
+    operating_margin_pct: float | None
+    free_cash_flow_margin_pct: float | None
+    net_debt: float | None
     source: str
     status: str
 
 
-# SEC CIK identifiers for the US seed universe. SEC company facts are public;
-# no brokerage credential or market-data key is stored in the application.
 _SEC_CIK = {
     "MSFT": "0000789019", "AAPL": "0000320193", "GOOGL": "0001652044", "META": "0001326801",
     "NVDA": "0001045810", "AVGO": "0001730168", "TSM": "0001046179", "ORCL": "0001341439",
@@ -45,29 +47,37 @@ _TAGS = {
 
 
 def _fetch_json(url: str) -> dict[str, object]:
-    request = Request(url, headers={
-        "User-Agent": os.getenv("SEC_USER_AGENT", "Investment Intelligence research contact@localhost"),
-        "Accept": "application/json",
-    })
+    request = Request(url, headers={"User-Agent": os.getenv("SEC_USER_AGENT", "Investment Intelligence research contact@localhost"), "Accept": "application/json"})
     with urlopen(request, timeout=float(os.getenv("FUNDAMENTALS_TIMEOUT", "8"))) as response:  # noqa: S310
         return json.loads(response.read().decode("utf-8"))
 
 
-def _latest_annual(facts: dict[str, object], tags: tuple[str, ...]) -> tuple[float | None, int | None]:
+def _annual_values(facts: dict[str, object], tags: tuple[str, ...]) -> list[dict[str, object]]:
     units = facts.get("facts", {}).get("us-gaap", {})
     for tag in tags:
         node = units.get(tag)
         if not node:
             continue
-        values = node.get("units", {}).get("USD") or node.get("units", {}).get("USD/shares") or node.get("units", {}).get("shares")
+        values = node.get("units", {}).get("USD")
         if not values:
             continue
         annual = [v for v in values if v.get("form") in {"10-K", "10-K/A"} and v.get("fp") == "FY" and isinstance(v.get("val"), (int, float))]
-        if not annual:
-            continue
-        latest = max(annual, key=lambda v: (str(v.get("fy", "")), str(v.get("filed", ""))))
-        return float(latest["val"]), int(latest["fy"]) if str(latest.get("fy", "")).isdigit() else None
-    return None, None
+        if annual:
+            by_year: dict[str, dict[str, object]] = {}
+            for value in annual:
+                year = str(value.get("fy", ""))
+                if year.isdigit() and (year not in by_year or str(value.get("filed", "")) > str(by_year[year].get("filed", ""))):
+                    by_year[year] = value
+            return sorted(by_year.values(), key=lambda v: int(str(v["fy"])), reverse=True)
+    return []
+
+
+def _latest_annual(facts: dict[str, object], tags: tuple[str, ...]) -> tuple[float | None, int | None]:
+    values = _annual_values(facts, tags)
+    if not values:
+        return None, None
+    latest = values[0]
+    return float(latest["val"]), int(latest["fy"]) if str(latest.get("fy", "")).isdigit() else None
 
 
 def sec_fundamentals(symbol: str) -> FundamentalSnapshot | None:
@@ -75,9 +85,11 @@ def sec_fundamentals(symbol: str) -> FundamentalSnapshot | None:
     if not cik:
         return None
     try:
-        payload = _fetch_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json")
-        facts = payload.get("facts", {})
-        revenue, fy = _latest_annual(facts, _TAGS["revenue"])
+        facts = _fetch_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json")
+        revenue_values = _annual_values(facts, _TAGS["revenue"])
+        revenue = float(revenue_values[0]["val"]) if revenue_values else None
+        fy = int(revenue_values[0]["fy"]) if revenue_values and str(revenue_values[0].get("fy", "")).isdigit() else None
+        prior_revenue = float(revenue_values[1]["val"]) if len(revenue_values) > 1 else None
         operating, _ = _latest_annual(facts, _TAGS["operating_income"])
         cfo, _ = _latest_annual(facts, _TAGS["cfo"])
         capex, _ = _latest_annual(facts, _TAGS["capex"])
@@ -87,9 +99,13 @@ def sec_fundamentals(symbol: str) -> FundamentalSnapshot | None:
         cash, _ = _latest_annual(facts, _TAGS["cash"])
         fcf = cfo - abs(capex) if cfo is not None and capex is not None else None
         debt = (debt_current or 0) + (debt_noncurrent or 0) if debt_current is not None or debt_noncurrent is not None else None
+        growth = ((revenue / prior_revenue) - 1) * 100 if revenue is not None and prior_revenue and prior_revenue > 0 else None
+        operating_margin = operating / revenue * 100 if operating is not None and revenue and revenue > 0 else None
+        fcf_margin = fcf / revenue * 100 if fcf is not None and revenue and revenue > 0 else None
+        net_debt = debt - cash if debt is not None and cash is not None else None
         if revenue is None and operating is None:
             return None
-        return FundamentalSnapshot(symbol.upper(), fy, revenue, operating, fcf, eps, debt, cash, "SEC Company Facts", "LIVE")
+        return FundamentalSnapshot(symbol.upper(), fy, revenue, operating, fcf, eps, debt, cash, growth, operating_margin, fcf_margin, net_debt, "SEC Company Facts", "LIVE")
     except (HTTPError, URLError, TimeoutError, ValueError, TypeError, KeyError, json.JSONDecodeError):
         return None
 
@@ -100,16 +116,12 @@ def fundamentals_for_asset(asset: AssetSnapshot) -> FundamentalSnapshot:
         live = sec_fundamentals(asset.symbol)
         if live:
             return live
-    return FundamentalSnapshot(
-        asset.symbol, None,
-        asset.price * 1000 / max(asset.pe_ratio, 1),
-        asset.operating_margin_pct / 100 * asset.price * 1000,
-        asset.free_cash_flow_margin_pct / 100 * asset.price * 1000,
-        asset.price / max(asset.pe_ratio, 1),
-        max(asset.net_debt_to_ebitda, 0) * asset.price * 100,
-        asset.price * 100,
-        "Internal deterministic dataset", "DEMO",
-    )
+    revenue = asset.price * 1000 / max(asset.pe_ratio, 1)
+    operating = asset.operating_margin_pct / 100 * revenue
+    fcf = asset.free_cash_flow_margin_pct / 100 * revenue
+    debt = max(asset.net_debt_to_ebitda, 0) * asset.price * 100
+    cash = asset.price * 100
+    return FundamentalSnapshot(asset.symbol, None, revenue, operating, fcf, asset.price / max(asset.pe_ratio, 1), debt, cash, asset.revenue_growth_pct, asset.operating_margin_pct, asset.free_cash_flow_margin_pct, debt - cash, "Internal deterministic dataset", "DEMO")
 
 
 def fundamentals_for_symbol(symbol: str) -> FundamentalSnapshot | None:
