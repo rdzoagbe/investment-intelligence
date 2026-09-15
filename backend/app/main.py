@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
-
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from .auth import authenticate, create_user, issue_token, user_from_token
 from .backtest import BacktestConfig, run_backtest
 from .broker import gateway
 from .committee import build_committee
@@ -17,10 +17,17 @@ from .market_data import live_quotes, market_data_status
 from .paper_trading import paper_account
 from .portfolio import Holding, portfolio_snapshot, risk_metrics
 
-app = FastAPI(title="Investment Intelligence API", version="1.1.0")
+app = FastAPI(title="Investment Intelligence API", version="1.2.0")
 cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True, allow_methods=["GET", "POST"], allow_headers=["*"])
 
+class RegisterRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=80)
+    email: str = Field(min_length=5, max_length=254)
+    password: str = Field(min_length=8, max_length=128)
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=254)
+    password: str = Field(min_length=8, max_length=128)
 class BacktestRequest(BaseModel):
     prices: list[float] = Field(min_length=2); scores: list[float] = Field(min_length=2)
     initial_cash: float = Field(default=10000, gt=0); position_pct: float = Field(default=0.20, gt=0, le=1)
@@ -34,6 +41,28 @@ class BrokerApproval(BrokerPreview):
 
 @app.get("/api/health")
 def health() -> dict[str, str]: return {"status": "ok", "service": "investment-intelligence-api", "version": app.version}
+
+@app.post("/api/auth/register")
+def register(request: RegisterRequest) -> dict[str, object]:
+    user, error = create_user(request.name, request.email, request.password)
+    if error: raise HTTPException(409, error)
+    assert user is not None
+    return {"access_token": issue_token(int(user["id"])), "token_type": "bearer", "user": user}
+
+@app.post("/api/auth/login")
+def login(request: LoginRequest) -> dict[str, object]:
+    user = authenticate(request.email, request.password)
+    if not user: raise HTTPException(401, "Invalid email or password.")
+    return {"access_token": issue_token(int(user["id"])), "token_type": "bearer", "user": user}
+
+@app.get("/api/auth/me")
+def me(authorization: str | None = Header(default=None)) -> dict[str, object]:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(401, "Authentication required.")
+    user = user_from_token(authorization.split(" ", 1)[1].strip())
+    if not user: raise HTTPException(401, "Session expired or invalid.")
+    return user
+
 @app.get("/api/assets")
 def assets() -> list[dict[str, str]]: return [{"symbol": a.symbol, "name": a.name, "market": a.market, "currency": a.currency} for a in ASSETS]
 @app.get("/api/market-data")
