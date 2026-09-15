@@ -3,5 +3,5 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/investment-intelligence/",
+  base: process.env.GITHUB_PAGES === "true" ? "/investment-intelligence/" : "/",
 });
