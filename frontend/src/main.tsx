@@ -2,129 +2,63 @@ import { StrictMode, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-type Asset = {
-  symbol: string; name: string; market: string; currency: string; price: number; change_pct: number;
-  score: number; verdict: string; breakdown: Record<string, number>; macro_sensitivity: string;
-};
-type Dashboard = {
-  portfolio: { value: number; total_return_pct: number; benchmark_return_pct: number; risk_level: string; volatility_pct: number; cash_pct: number; cash_value: number };
-  markets: { name: string; value: number; change_pct: number }[]; scanner: Asset[];
-  committee: { symbol: string; verdict: string; score: number; question: string };
-  insights: { type: string; text: string }[]; data_status: string;
-};
-type Analysis = Asset & { thesis: { bull: string[]; bear: string[]; invalidation: string; market_question: string } };
+type Asset = { symbol:string; name:string; market:string; currency:string; price:number|null; change_pct:number|null; score:number|null; verdict:string|null; breakdown?:Record<string,number>; macro_sensitivity?:string; provider?:string; timestamp?:number|null; status?:string };
+type Quote = { symbol:string; price:number|null; previous_close:number|null; change_pct:number|null; currency:string; timestamp:number|null; provider:string; status:string };
+type Dashboard = { scanner:Asset[]; markets:Quote[]; data_status:string; live_coverage:number };
+type Page = "Command Center"|"Opportunity Scanner"|"Investment Committee"|"Portfolio"|"Market Intelligence"|"Investment Journal"|"Backtesting"|"Paper Trading"|"Broker Integration"|"Settings";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+const YAHOO:Record<string,string> = { V:"V", "BRK-B":"BRK-B", "NESN.SW":"NESN.SW", "MC.PA":"MC.PA", "SU.PA":"SU.PA", "AIR.PA":"AIR.PA" };
+const ASSETS = ["MSFT","ASML","V","AMZN","AAPL","GOOGL","META","NVDA","AVGO","TSM","ORCL","CRM","JPM","BRK-B","LLY","JNJ","NESN.SW","SAP","MC.PA","SU.PA","AIR.PA","SONY","KO","TSLA"];
+const names:Record<string,string> = {MSFT:"Microsoft",ASML:"ASML Holding",V:"Visa",AMZN:"Amazon",AAPL:"Apple",GOOGL:"Alphabet",META:"Meta Platforms",NVDA:"NVIDIA",AVGO:"Broadcom",TSM:"Taiwan Semiconductor",ORCL:"Oracle",CRM:"Salesforce",JPM:"JPMorgan Chase","BRK-B":"Berkshire Hathaway",LLY:"Eli Lilly",JNJ:"Johnson & Johnson","NESN.SW":"Nestlé",SAP:"SAP","MC.PA":"LVMH","SU.PA":"Schneider Electric","AIR.PA":"Airbus",SONY:"Sony Group",KO:"Coca-Cola",TSLA:"Tesla"};
 
-const demoAssets: Asset[] = [
-  { symbol: "MSFT", name: "Microsoft", market: "NASDAQ", currency: "USD", price: 415.2, change_pct: 1.05, score: 92, verdict: "BUY", breakdown: { fundamental: 96, growth: 91, cash_flow: 95, balance_sheet: 96, valuation: 68, momentum: 87, sentiment: 72 }, macro_sensitivity: "Moderate" },
-  { symbol: "ASML", name: "ASML Holding", market: "Euronext Amsterdam", currency: "EUR", price: 672.4, change_pct: 0.82, score: 90, verdict: "BUY", breakdown: { fundamental: 89, growth: 87, cash_flow: 92, balance_sheet: 94, valuation: 72, momentum: 83, sentiment: 76 }, macro_sensitivity: "High" },
-  { symbol: "VISA", name: "Visa", market: "NYSE", currency: "USD", price: 277.3, change_pct: 0.61, score: 88, verdict: "BUY", breakdown: { fundamental: 94, growth: 66, cash_flow: 98, balance_sheet: 100, valuation: 72, momentum: 79, sentiment: 74 }, macro_sensitivity: "Low" },
-  { symbol: "AMZN", name: "Amazon", market: "NASDAQ", currency: "USD", price: 228.1, change_pct: 0.94, score: 86, verdict: "BUY", breakdown: { fundamental: 72, growth: 68, cash_flow: 47, balance_sheet: 85, valuation: 63, momentum: 88, sentiment: 81 }, macro_sensitivity: "Moderate" },
-  { symbol: "ACCESS", name: "Access Bank Ghana", market: "GSE", currency: "GHS", price: 18.2, change_pct: -0.3, score: 68, verdict: "WATCH", breakdown: { fundamental: 65, growth: 83, cash_flow: 46, balance_sheet: 92, valuation: 100, momentum: 61, sentiment: 59 }, macro_sensitivity: "High" },
-];
+function providerSymbol(s:string){return YAHOO[s]??s}
+async function yahooQuote(symbol:string):Promise<Quote>{
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol(symbol))}?range=5d&interval=1d`;
+  const r=await fetch(url,{signal:AbortSignal.timeout(7000)}); if(!r.ok) throw new Error("market feed unavailable");
+  const result=(await r.json())?.chart?.result?.[0]; const m=result?.meta; if(!m?.regularMarketPrice) throw new Error("quote unavailable");
+  const previous=Number(m.previousClose??m.chartPreviousClose); const price=Number(m.regularMarketPrice);
+  return {symbol,price,previous_close:Number.isFinite(previous)?previous:null,change_pct:Number.isFinite(previous)&&previous>0?((price/previous)-1)*100:null,currency:String(m.currency??""),timestamp:Number(m.regularMarketTime??0)||null,provider:"Yahoo Finance",status:"LIVE"};
+}
+async function liveQuotes():Promise<Quote[]>{return Promise.all(ASSETS.map(async s=>{try{return await yahooQuote(s)}catch{return {symbol:s,price:null,previous_close:null,change_pct:null,currency:"",timestamp:null,provider:"Yahoo Finance",status:"UNAVAILABLE"}}}))}
+function money(v:number|null,c="EUR"){return v==null?"—":new Intl.NumberFormat("en-GB",{style:"currency",currency:c,maximumFractionDigits:2}).format(v)}
+function pct(v:number|null){return v==null?"—":`${v>=0?"+":""}${v.toFixed(2)}%`}
 
-const demoDashboard: Dashboard = {
-  portfolio: { value: 12450, total_return_pct: 12.4, benchmark_return_pct: 9.8, risk_level: "Moderate", volatility_pct: 14.8, cash_pct: 17, cash_value: 2117 },
-  markets: [
-    { name: "S&P 500", value: 5842, change_pct: 0.72 }, { name: "NASDAQ", value: 18771, change_pct: 0.91 },
-    { name: "DAX", value: 23456, change_pct: 0.48 }, { name: "EUR/USD", value: 1.102, change_pct: 0.18 }, { name: "Gold", value: 2534, change_pct: 0.36 },
-  ],
-  scanner: demoAssets,
-  committee: { symbol: "MSFT", verdict: "BUY", score: 92, question: "What does the market already know that this score may be missing?" },
-  insights: [
-    { type: "MACRO", text: "Central-bank expectations remain a key driver for long-duration growth assets." },
-    { type: "SECTOR", text: "AI infrastructure demand continues to influence semiconductor and cloud valuations." },
-    { type: "RISK", text: "The scanner separates deterministic scoring from narrative analysis so assumptions remain inspectable." },
-  ],
-  data_status: "DEMO_DATASET",
-};
-
-function formatMoney(value: number, currency = "EUR") {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
+function App(){
+ const [page,setPage]=useState<Page>("Command Center"); const [quotes,setQuotes]=useState<Quote[]>([]); const [backend,setBackend]=useState(false); const [search,setSearch]=useState(""); const [selected,setSelected]=useState<Asset|null>(null); const [message,setMessage]=useState("");
+ useEffect(()=>{liveQuotes().then(setQuotes)},[]);
+ useEffect(()=>{if(API_BASE) fetch(`${API_BASE}/api/health`,{signal:AbortSignal.timeout(2500)}).then(r=>{if(r.ok)setBackend(true)}).catch(()=>{})},[]);
+ const assets=useMemo(()=>quotes.map(q=>({symbol:q.symbol,name:names[q.symbol]??q.symbol,market:q.symbol.endsWith(".PA")?"Euronext Paris":q.symbol.endsWith(".SW")?"SIX Swiss Exchange":q.symbol==="ASML"?"Euronext Amsterdam":"US Market",currency:q.currency,price:q.price,change_pct:q.change_pct,score:null,verdict:null,provider:q.provider,timestamp:q.timestamp,status:q.status})),[quotes]);
+ const filtered=assets.filter(a=>`${a.symbol} ${a.name}`.toLowerCase().includes(search.toLowerCase()));
+ async function openAsset(a:Asset){if(API_BASE){try{const r=await fetch(`${API_BASE}/api/assets/${a.symbol}/analysis`,{signal:AbortSignal.timeout(4000)});if(r.ok){setSelected(await r.json());return}}catch{}}setSelected(a)}
+ const nav=(items:Page[])=>items.map(x=><button key={x} className={`nav-item ${page===x?"active":""}`} onClick={()=>setPage(x)}><span className="nav-dot"/>{x}</button>);
+ return <div className="app-shell"><aside className="sidebar"><div className="brand"><div className="brand-mark">II</div><div><strong>Investment Intelligence</strong><span>Research. Challenge. Decide.</span></div></div><nav>{nav(["Command Center","Opportunity Scanner","Investment Committee","Portfolio","Market Intelligence","Investment Journal"])}</nav><div className="sidebar-section"><span className="section-label">Tools</span>{nav(["Backtesting","Paper Trading","Broker Integration","Settings"])}</div></aside>
+ <main className="main-content"><header className="topbar"><div><div className="eyebrow">{page.toUpperCase()}</div><h1>{page}</h1></div><input className="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search symbol or company..."/><div className={`status-pill ${backend?"live":"public"}`}><span/> {backend?"API connected":"Public live quotes"}</div></header>
+ <section className="ticker-row">{quotes.slice(0,5).map(q=><div className="ticker" key={q.symbol}><strong>{q.symbol}</strong> {money(q.price,q.currency||"USD")} <span className={q.change_pct!=null&&q.change_pct>=0?"positive":"negative"}>{pct(q.change_pct)}</span></div>)}</section>
+ {page==="Command Center"&&<Command quotes={quotes} assets={filtered} onOpen={openAsset} />}
+ {page==="Opportunity Scanner"&&<Scanner assets={filtered} onOpen={openAsset}/>} 
+ {page==="Investment Committee"&&<Committee onOpen={openAsset} assets={assets}/>} 
+ {page==="Portfolio"&&<Portfolio backend={backend}/>} 
+ {page==="Market Intelligence"&&<Intelligence backend={backend}/>} 
+ {page==="Investment Journal"&&<Journal/>}
+ {page==="Backtesting"&&<Backtest/>}
+ {page==="Paper Trading"&&<Paper backend={backend}/>} 
+ {page==="Broker Integration"&&<Broker backend={backend}/>} 
+ {page==="Settings"&&<Settings backend={backend}/>} 
+ <div className="data-status">Prices: live provider status shown per asset. No synthetic price fallback. {backend?"Backend calculations available when configured.":"Advanced fundamentals, portfolio and execution APIs require the backend URL to be configured."}</div></main>
+ {selected&&<div className="modal-backdrop" onClick={()=>setSelected(null)}><section className="analysis-modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setSelected(null)}>×</button><div className="eyebrow">ASSET DATA</div><h2>{selected.name} · {selected.symbol}</h2><div className="analysis-head"><strong>{selected.price==null?"—":money(selected.price,selected.currency||"USD")}</strong><span>{pct(selected.change_pct)}</span><span>{selected.status??"API"} · {selected.provider??"Backend"}</span></div><div className="analysis-columns"><div><h3>Data quality</h3><p>Provider: {selected.provider??"—"}</p><p>Timestamp: {selected.timestamp?new Date(selected.timestamp*1000).toLocaleString():"Unavailable"}</p></div><div><h3>Decision layer</h3><p>Deterministic score: {selected.score==null?"Not available":""+selected.score}</p><p>Verdict: {selected.verdict??"Not generated from live fundamentals"}</p></div></div><div className="invalidation"><strong>Important:</strong> AI synthesis is not substituted for missing source data. Missing or stale inputs remain explicitly marked.</div></section></div>}
+ </div>
 }
 
-function demoAnalysis(symbol: string): Analysis | null {
-  const asset = demoAssets.find((item) => item.symbol === symbol);
-  if (!asset) return null;
-  return { ...asset, thesis: {
-    bull: [
-      `${asset.name} has a strong modeled operating profile and a supportive long-term growth catalyst.`,
-      `The deterministic score is ${asset.score}/100, with strong contribution from fundamentals and cash generation.`,
-      "Catalysts are monitored separately from the score so the thesis can be challenged rather than blindly followed.",
-    ],
-    bear: [
-      "Valuation leaves room for multiple compression if expectations reset.",
-      "Execution, macro sensitivity and sector-specific risks could weaken the current setup.",
-      "A strong headline score does not eliminate downside risk or uncertainty.",
-    ],
-    invalidation: "The thesis weakens materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
-    market_question: "What does the market already know that this score may be missing?",
-  }};
-}
-
-function App() {
-  const [dashboard, setDashboard] = useState<Dashboard>(demoDashboard);
-  const [selected, setSelected] = useState<Analysis | null>(null);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("Demo mode");
-  const [activeNav, setActiveNav] = useState("Command Center");
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/dashboard`, { signal: AbortSignal.timeout(2500) })
-      .then((response) => { if (!response.ok) throw new Error("API unavailable"); return response.json(); })
-      .then((data: Dashboard) => { setDashboard(data); setStatus("Engine connected"); })
-      .catch(() => setStatus("Demo mode"));
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return dashboard.scanner.filter((asset) => !q || `${asset.symbol} ${asset.name}`.toLowerCase().includes(q));
-  }, [dashboard, search]);
-
-  async function inspect(symbol: string) {
-    try {
-      const response = await fetch(`${API_BASE}/api/assets/${symbol}/analysis`, { signal: AbortSignal.timeout(2500) });
-      if (!response.ok) throw new Error("API unavailable");
-      setSelected(await response.json());
-    } catch { setSelected(demoAnalysis(symbol)); }
-  }
-
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <div className="brand"><div className="brand-mark">II</div><div><strong>Investment Intelligence</strong><span>Research. Challenge. Decide.</span></div></div>
-      <nav>{["Command Center", "Opportunity Scanner", "Investment Committee", "Portfolio", "Market Intelligence", "Investment Journal"].map((item) => <button className={`nav-item ${activeNav === item ? "active" : ""}`} key={item} onClick={() => setActiveNav(item)}><span className="nav-dot" />{item}</button>)}</nav>
-      <div className="sidebar-section"><span className="section-label">Tools</span>{["Backtesting", "Paper Trading", "Broker Integration", "Settings"].map((item) => <button className="nav-item muted" key={item}>{item}</button>)}</div>
-    </aside>
-
-    <main className="main-content">
-      <header className="topbar"><div><div className="eyebrow">{activeNav.toUpperCase()}</div><h1>Good morning.</h1></div><input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stock, ETF, index or company..."/><div className="status-pill"><span /> {status}</div></header>
-
-      <section className="ticker-row">{dashboard.markets.map((market) => <div className="ticker" key={market.name}><strong>{market.name}</strong> {market.value.toLocaleString()} <span className="positive">+{market.change_pct.toFixed(2)}%</span></div>)}</section>
-
-      <section className="kpi-grid">
-        <div className="card kpi"><span>Portfolio Value</span><strong>{formatMoney(dashboard.portfolio.value)}</strong><small>+{formatMoney(dashboard.portfolio.value * dashboard.portfolio.total_return_pct / 100)} all time</small></div>
-        <div className="card kpi"><span>Total Return</span><strong className="positive">+{dashboard.portfolio.total_return_pct}%</strong><small>vs benchmark +{dashboard.portfolio.benchmark_return_pct}%</small></div>
-        <div className="card kpi"><span>Risk Level</span><strong>{dashboard.portfolio.risk_level}</strong><small>Volatility {dashboard.portfolio.volatility_pct}%</small></div>
-        <div className="card kpi"><span>Cash</span><strong>{dashboard.portfolio.cash_pct}%</strong><small>{formatMoney(dashboard.portfolio.cash_value)} available</small></div>
-      </section>
-
-      <section className="content-grid">
-        <div className="card opportunities"><div className="card-header"><div><span className="eyebrow">AI MARKET SCANNER</span><h2>Top Investment Opportunities</h2></div><button className="ghost">{filtered.length} ranked</button></div>
-          <div className="table"><div className="table-head"><span>Asset</span><span>Market</span><span>Currency</span><span>AI Score</span></div>{filtered.map((asset) => <button className="table-row clickable" key={asset.symbol} onClick={() => inspect(asset.symbol)}><div><strong>{asset.symbol}</strong><small>{asset.name}</small></div><span>{asset.market}</span><span>{asset.currency}</span><strong className="score">{asset.score}/100</strong></button>)}</div>
-        </div>
-        <div className="card insight"><div className="card-header"><div><span className="eyebrow">AI MARKET INSIGHTS</span><h2>What matters now</h2></div></div><div className="insight-list">{dashboard.insights.map((item) => <article key={item.type}><span className="signal">{item.type}</span><p>{item.text}</p></article>)}</div></div>
-      </section>
-
-      <section className="content-grid lower">
-        <div className="card chart-card"><div className="card-header"><div><span className="eyebrow">PERFORMANCE</span><h2>Portfolio vs S&amp;P 500</h2></div><span className="range">1Y</span></div><div className="chart-placeholder"><div className="chart-line one"/><div className="chart-line two"/><div className="chart-labels"><span>Sep</span><span>Dec</span><span>Mar</span><span>Jun</span><span>Sep</span></div></div></div>
-        <div className="card committee-card"><div className="card-header"><div><span className="eyebrow">INVESTMENT COMMITTEE</span><h2>{dashboard.committee.symbol}</h2></div><span className="verdict">{dashboard.committee.verdict}</span></div><div className="committee-score"><strong>{dashboard.committee.score}</strong><span>/100 AI Investment Score</span></div><p className="muted-copy">The committee combines deterministic scoring with a bull/bear challenge. Select an asset above to inspect the current thesis, risks and invalidation condition.</p><p className="question">“{dashboard.committee.question}”</p></div>
-      </section>
-      <div className="data-status">Data source: {dashboard.data_status}. This public demo does not execute trades.</div>
-    </main>
-
-    {selected && <div className="modal-backdrop" onClick={() => setSelected(null)}><section className="analysis-modal" onClick={(e) => e.stopPropagation()}><button className="close" onClick={() => setSelected(null)}>×</button><div className="eyebrow">INVESTMENT COMMITTEE</div><h2>{selected.name} · {selected.symbol}</h2><div className="analysis-head"><strong>{selected.score}</strong><span>/100 · {selected.verdict}</span><span>{selected.currency} {selected.price.toFixed(2)} · {selected.change_pct >= 0 ? "+" : ""}{selected.change_pct.toFixed(2)}%</span></div><div className="analysis-columns"><div><h3>Bull thesis</h3>{selected.thesis.bull.map((point) => <p key={point}>+ {point}</p>)}</div><div><h3>Bear thesis</h3>{selected.thesis.bear.map((point) => <p key={point}>− {point}</p>)}</div></div><div className="invalidation"><strong>Invalidation:</strong> {selected.thesis.invalidation}</div></section></div>}
-  </div>;
-}
-
-createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
+function Command({quotes,assets,onOpen}:{quotes:Quote[],assets:Asset[],onOpen:(a:Asset)=>void}){return <><section className="kpi-grid"><div className="card kpi"><span>Live instruments</span><strong>{quotes.filter(q=>q.status==="LIVE").length}/{quotes.length}</strong><small>Provider coverage</small></div><div className="card kpi"><span>Unavailable</span><strong>{quotes.filter(q=>q.status!=="LIVE").length}</strong><small>No fabricated fallback</small></div><div className="card kpi"><span>Backend</span><strong>{"—"}</strong><small>Connect for fundamentals</small></div><div className="card kpi"><span>Execution</span><strong>OFF</strong><small>Human approval required</small></div></section><section className="content-grid"><Scanner assets={assets.slice(0,10)} onOpen={onOpen}/><div className="card insight"><div className="card-header"><div><span className="eyebrow">DATA QUALITY</span><h2>What is actually live?</h2></div></div><div className="insight-list"><article><span className="signal">MARKET</span><p>Quotes are fetched from the external market provider and display LIVE or UNAVAILABLE status.</p></article><article><span className="signal">FUNDAMENTALS</span><p>Fundamental scores are not presented as current unless the backend data source is connected.</p></article><article><span className="signal">TRADING</span><p>Paper trading is simulated. Live broker execution remains disabled.</p></article></div></div></section></>}
+function Scanner({assets,onOpen}:{assets:Asset[],onOpen:(a:Asset)=>void}){return <section className="card opportunities"><div className="card-header"><div><span className="eyebrow">OPPORTUNITY SCANNER</span><h2>Market universe</h2></div><span className="range">{assets.length} results</span></div><div className="table"><div className="table-head"><span>Asset</span><span>Market</span><span>Price</span><span>Change</span></div>{assets.map(a=><button className="table-row clickable" key={a.symbol} onClick={()=>onOpen(a)}><div><strong>{a.symbol}</strong><small>{a.name}</small></div><span>{a.market}</span><span>{money(a.price,a.currency||"USD")}</span><strong className={a.change_pct!=null&&a.change_pct>=0?"positive":"negative"}>{pct(a.change_pct)}</strong></button>)}</div></section>}
+function Committee({assets,onOpen}:{assets:Asset[],onOpen:(a:Asset)=>void}){return <section className="content-grid"><div className="card"><div className="card-header"><div><span className="eyebrow">INVESTMENT COMMITTEE</span><h2>Decision queue</h2></div></div><div className="insight-list">{assets.slice(0,8).map(a=><article key={a.symbol}><span className="signal">{a.symbol}</span><p>Live price {money(a.price,a.currency||"USD")} · {pct(a.change_pct)}. Fundamental committee decision requires connected source data.</p><button className="ghost" onClick={()=>onOpen(a)}>Inspect</button></article>)}</div></div><div className="card committee-card"><div className="card-header"><div><span className="eyebrow">CONTROL</span><h2>Human decision required</h2></div></div><p className="muted-copy">The committee must never manufacture a BUY/SELL verdict when required source data is missing. AI synthesis remains downstream of deterministic evidence.</p></div></section>}
+function Portfolio({backend}:{backend:boolean}){return <Panel title="Portfolio analytics"><p>{backend?"Portfolio API connected. Live holdings and risk metrics can be loaded from the configured backend.":"No connected portfolio is exposed on the public deployment yet."}</p><p className="warning">No hard-coded portfolio value is shown as real performance.</p></Panel>}
+function Intelligence({backend}:{backend:boolean}){return <Panel title="Market intelligence"><p>{backend?"News and macro endpoints are available through the backend.":"Live quote data is available. News and macro feeds require the backend deployment."}</p><p className="warning">Every intelligence item must retain source and timestamp before being used for investment decisions.</p></Panel>}
+function Journal(){return <Panel title="Investment journal"><p>Journal workspace is ready for decisions, rationale, evidence, invalidation conditions and post-trade review.</p><textarea className="journal" placeholder="Record thesis, evidence, risks and invalidation condition..."/></Panel>}
+function Backtest(){const [result,setResult]=useState(""); return <Panel title="Backtesting"><p>Backtests are deterministic simulations and must use historical prices supplied to the engine.</p><button className="primary" onClick={()=>setResult("Provide a historical dataset through the API to run a reproducible backtest.")}>Run test</button>{result&&<p>{result}</p>}</Panel>}
+function Paper({backend}:{backend:boolean}){return <Panel title="Paper trading"><p>Mode: <strong>PAPER</strong></p><p>{backend?"Paper-trading API connected.":"Backend not connected; no order is submitted."}</p><button className="primary" disabled={!backend}>Create paper order</button></Panel>}
+function Broker({backend}:{backend:boolean}){return <Panel title="Broker integration"><p>Live execution: <strong>DISABLED</strong></p><p>Any live order must pass explicit human approval. No automatic execution is permitted.</p><button className="primary" disabled>Live trading disabled</button><small>{backend?"Broker preview endpoint available; execution remains gated.":"Connect a backend to preview broker orders."}</small></Panel>}
+function Settings({backend}:{backend:boolean}){return <Panel title="Settings"><p>Backend status: <strong>{backend?"CONNECTED":"NOT CONFIGURED"}</strong></p><p>Market source: Yahoo Finance chart API for public quotes.</p><p>Secrets: never stored in frontend source.</p></Panel>}
+function Panel({title,children}:{title:string,children:React.ReactNode}){return <section className="card panel"><div className="card-header"><div><span className="eyebrow">INVESTMENT INTELLIGENCE</span><h2>{title}</h2></div></div><div className="panel-body">{children}</div></section>}
+createRoot(document.getElementById("root")!).render(<StrictMode><App/></StrictMode>);
