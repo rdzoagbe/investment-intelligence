@@ -10,11 +10,12 @@ import time
 from pathlib import Path
 
 DB_PATH = Path(os.getenv("AUTH_DB_PATH", str(Path(__file__).resolve().parent.parent / "investment.db")))
-JWT_SECRET = os.getenv("AUTH_SECRET", "change-me-in-production")
+JWT_SECRET = os.getenv("AUTH_SECRET") or secrets.token_hex(32)
 TOKEN_TTL = 60 * 60 * 24 * 7
 
 
 def _db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("""CREATE TABLE IF NOT EXISTS users (
