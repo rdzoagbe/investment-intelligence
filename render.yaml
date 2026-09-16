@@ -2,20 +2,26 @@ services:
   - type: web
     name: investment-intelligence
     runtime: python
-    plan: starter
+    plan: free
+    region: frankfurt
     buildCommand: "python -m pip install -r backend/requirements.txt && cd frontend && npm install && npm run build && cd .. && rm -rf backend/static && cp -R frontend/dist backend/static"
     startCommand: "python backend/run.py"
     healthCheckPath: /api/health
     envVars:
       - key: AUTH_SECRET
         generateValue: true
-      - key: AUTH_DB_PATH
-        value: /var/data/investment.db
+      - key: DATABASE_URL
+        fromDatabase:
+          name: investment-intelligence-db
+          property: connectionString
       - key: MARKET_DATA_MODE
         value: live
       - key: CORS_ORIGINS
         value: "*"
-    disk:
-      name: investment-data
-      mountPath: /var/data
-      sizeGB: 1
+
+databases:
+  - name: investment-intelligence-db
+    plan: free
+    region: frankfurt
+    databaseName: investment_intelligence
+    user: investment_intelligence
