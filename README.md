@@ -8,6 +8,18 @@ A local-first investment research and portfolio intelligence platform.
 
 The product is designed as an investment research desk rather than a blind trading bot. It combines market data, fundamentals, quantitative signals, valuation, portfolio risk, news/macro context, and competing investment theses into one decision workflow.
 
+## Data honesty rules
+
+- Every figure in the UI shows whether it is **LIVE** or **DEMO** and where it came from.
+- No values are invented when a provider fails: benchmarks show "Unavailable", and the static site shows a labelled demo dataset.
+- Scores are shown as neutral bands (High score / Watch / Neutral / Low score), not buy/sell instructions.
+- This is a research and education tool, not investment advice and not a broker.
+
+## Deployments
+
+- **GitHub Pages** (`deploy-pages.yml`): static frontend only. It has no API, so it shows the bundled demo dataset (`frontend/src/demo-snapshot.json`, regenerated with `python backend/scripts/export_demo_snapshot.py`) and skips sign-in.
+- **Render** (`render.yaml`): API + frontend + PostgreSQL, with accounts. Free instances sleep and can take about a minute to wake.
+
 ## Current stage — V1 + live market-data adapter
 
 The working vertical slice includes:

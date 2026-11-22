@@ -1,50 +1,333 @@
 import { StrictMode, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { Bell, BrainCircuit, CalendarDays, ChevronDown, CircleDollarSign, Gauge, Home, LineChart, Newspaper, PieChart, Search, Settings as SettingsIcon, ShieldAlert, Sparkles, Target, Users, WalletCards, X } from "lucide-react";
+import { BookOpen, BrainCircuit, CircleDollarSign, Database, Home, LineChart, Newspaper, Search, Settings as SettingsIcon, ShieldAlert, Users, WalletCards, X } from "lucide-react";
+import demoSnapshot from "./demo-snapshot.json";
 import "./styles.css";
 
-type Quote = { symbol:string; price:number|null; previous_close:number|null; change_pct:number|null; currency:string; timestamp:number|null; provider:string; status:string };
-type Asset = Quote & { name:string; market:string; score:number; return1y:number; sector:string };
-type Page = "Command Center"|"Opportunity Scanner"|"Investment Committee"|"Portfolio"|"Market Intelligence"|"Investment Journal"|"Backtesting"|"Paper Trading"|"Broker Integration"|"Settings";
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
-const ASSETS = ["MSFT","ASML","GOOGL","V","SU.PA","NVDA","AMZN","TSLA","META","AAPL","AVGO","TSM","ORCL","CRM","JPM","BRK-B","LLY","JNJ","NESN.SW","SAP","MC.PA","AIR.PA","SONY","KO"];
-const names:Record<string,string>={MSFT:"Microsoft",ASML:"ASML",GOOGL:"Alphabet",V:"Visa","SU.PA":"Schneider Electric",NVDA:"NVIDIA",AMZN:"Amazon",TSLA:"Tesla",META:"Meta",AAPL:"Apple",AVGO:"Broadcom",TSM:"Taiwan Semiconductor",ORCL:"Oracle",CRM:"Salesforce",JPM:"JPMorgan Chase","BRK-B":"Berkshire Hathaway",LLY:"Eli Lilly",JNJ:"Johnson & Johnson","NESN.SW":"Nestlé",SAP:"SAP","MC.PA":"LVMH","AIR.PA":"Airbus",SONY:"Sony",KO:"Coca-Cola"};
-const sectors:Record<string,string>={MSFT:"Technology",ASML:"Technology",GOOGL:"Technology",V:"Financials","SU.PA":"Industrials",NVDA:"Technology",AMZN:"Consumer Discretionary",TSLA:"Consumer Discretionary",META:"Technology",AAPL:"Technology",AVGO:"Technology",TSM:"Technology",ORCL:"Technology",CRM:"Technology",JPM:"Financials","BRK-B":"Financials",LLY:"Healthcare",JNJ:"Healthcare","NESN.SW":"Consumer Staples",SAP:"Technology","MC.PA":"Consumer Discretionary","AIR.PA":"Industrials",SONY:"Consumer Discretionary",KO:"Consumer Staples"};
-function yahooQuote(symbol:string):Promise<Quote>{return fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`,{signal:AbortSignal.timeout(6500)}).then(async r=>{if(!r.ok)throw Error("feed unavailable");const m=(await r.json())?.chart?.result?.[0]?.meta;if(!m?.regularMarketPrice)throw Error("quote unavailable");const p=Number(m.regularMarketPrice),prev=Number(m.previousClose??m.chartPreviousClose);return {symbol,price:p,previous_close:Number.isFinite(prev)?prev:null,change_pct:Number.isFinite(prev)&&prev>0?(p/prev-1)*100:null,currency:String(m.currency??"USD"),timestamp:Number(m.regularMarketTime??0)||null,provider:"Yahoo Finance",status:"LIVE"}})}
-function money(v:number|null,c="USD"){return v==null?"—":new Intl.NumberFormat("en-GB",{style:"currency",currency:c,maximumFractionDigits:2}).format(v)}
-function pct(v:number|null){return v==null?"—":`${v>=0?"+":""}${v.toFixed(2)}%`}
-function initials(symbol:string){return symbol.slice(0,2)}
-function App(){
- const [page,setPage]=useState<Page>("Command Center"),[quotes,setQuotes]=useState<Quote[]>([]),[search,setSearch]=useState(""),[selected,setSelected]=useState<Asset|null>(null),[range,setRange]=useState("1Y");
- useEffect(()=>{Promise.all(ASSETS.map(s=>yahooQuote(s).catch(()=>({symbol:s,price:null,previous_close:null,change_pct:null,currency:"USD",timestamp:null,provider:"Yahoo Finance",status:"UNAVAILABLE"})))).then(setQuotes)},[]);
- const assets=useMemo<Asset[]>(()=>quotes.map(q=>({...q,name:names[q.symbol]??q.symbol,market:q.symbol.endsWith(".PA")?"Euronext Paris":q.symbol.endsWith(".SW")?"SIX Swiss Exchange":q.symbol==="ASML"?"Euronext Amsterdam":"US Market",sector:sectors[q.symbol]??"Other",score:q.price?Math.min(98,70+Math.round(Math.abs(q.change_pct??0)*5)):0,return1y:q.price?Math.round((q.change_pct??0)*18):0})),[quotes]);
- const filtered=assets.filter(a=>`${a.symbol} ${a.name}`.toLowerCase().includes(search.toLowerCase()));
- const openAsset=async(a:Asset)=>{if(API_BASE){try{const r=await fetch(`${API_BASE}/api/assets/${a.symbol}/analysis`,{signal:AbortSignal.timeout(4000)});if(r.ok){setSelected(await r.json());return}}catch{}}setSelected(a)};
- const nav=(x:Page,icon:ReactNode)=><button className={`nav-item ${page===x?"active":""}`} onClick={()=>setPage(x)}>{icon}<span>{x}</span></button>;
- return <div className="app-shell"><aside className="sidebar"><div className="brand"><div className="brain"><BrainCircuit size={31}/></div><div><strong>AI INVESTMENT INTELLIGENCE</strong><span>Research. Challenge. Decide.</span></div></div><nav>{nav("Command Center",<Home size={17}/>)}{nav("Opportunity Scanner",<Search size={17}/>)}{nav("Investment Committee",<Users size={17}/>)}{nav("Portfolio",<WalletCards size={17}/>)}{nav("Market Intelligence",<Newspaper size={17}/>)}{nav("Investment Journal",<CalendarDays size={17}/>)}</nav><div className="tools"><span>TOOLS</span>{nav("Backtesting",<LineChart size={17}/>)}{nav("Paper Trading",<CircleDollarSign size={17}/>)}{nav("Broker Integration",<ShieldAlert size={17}/>)}{nav("Settings",<SettingsIcon size={17}/>)}</div><div className="quote">“The goal isn’t to be right all the time, but to have a process that works in the long run.”</div><div className="pulse">⌁</div></aside>
- <main className="main"><header className="topbar"><div className="searchbox"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search stocks, ETFs, sectors, or ask a question..."/><kbd>⌘K</kbd></div><div className="top-actions"><span className="bell"><Bell size={18}/><i/></span><div className="avatar">AM</div><div className="user"><b>Alex Martin</b><span>Premium Plan</span></div><ChevronDown size={14}/></div></header>
- <div className="workspace"><div className="primary"><div className="page-heading"><div><h1>{page}</h1><p>{page==="Command Center"?"Your personalized investment intelligence hub":"Research, challenge and decide with evidence."}</p></div><div className="market-state"><span>Thu, 13 Sep 2026</span><b><i/> Markets Open</b></div></div>
- <div className="ticker-row">{[["S&P 500","5,642.3","+0.82%"],["NASDAQ","17,824.1","+1.24%"],["DAX","15,602.7","+0.56%"],["EUR/USD","1.0824","+0.12%"],["Gold","2,521.4","+0.48%"],["Brent Oil","76.32","-0.21%"]].map(([n,v,c])=><div className="ticker" key={n}><span>{n}</span><strong>{v}</strong><em className={c.startsWith("-")?"down":"up"}>{c}</em></div>)}</div>
- {page==="Command Center"?<Command assets={filtered} onOpen={openAsset} range={range} setRange={setRange}/>:<PageContent page={page} assets={filtered} onOpen={openAsset}/>}</div><aside className="rightbar"><Insights/><Alerts/><Assistant/><Watchlist assets={assets.slice(5,10)} onOpen={openAsset}/></aside></div></main>{selected&&<AssetModal asset={selected} close={()=>setSelected(null)}/>}</div>
+// ---------- Types (mirror the FastAPI payloads) ----------
+type ScanItem = {
+  symbol: string; name: string; market: string; currency: string; price: number; change_pct: number | null;
+  score: number; verdict: string; breakdown: Record<string, number>;
+  fundamental_inputs: { revenue_growth_pct: number; operating_margin_pct: number; free_cash_flow_margin_pct: number; source: string; status: string };
+  macro_sensitivity: string; price_source: string; price_status: string;
+};
+type Scenario = { label: string; growth_pct: number; multiple: number; fair_value: number; upside_pct: number };
+type Analysis = ScanItem & {
+  thesis: { bull: string[]; bear: string[]; invalidation: string; market_question: string };
+  valuation: { scenarios: Scenario[] };
+  risk: { risk_budget: number; shares: number; position_value: number; position_weight_pct: number; model_account_value: number; stop_loss_pct: number; note: string };
+  data_status: string;
+};
+type Committee = { symbol: string; score: number; confidence: number; bull_case: string[]; bear_case: string[]; approval_state: string; execution: string; decision_question: string; timestamp: string; analysis?: string; model_provider?: string };
+type Macro = { regime: string; drivers: { name: string; direction: string; impact: string; note: string }[]; disclaimer: string };
+type MarketRow = { name: string; symbol: string; value: number | null; change_pct: number | null; status: string };
+type Portfolio = { value: number; invested: number; cash: number; cash_pct: number; pnl: number; return_pct: number; allocation: { symbol: string; value: number; weight_pct: number; pnl_pct: number }[]; risk_flags: string[]; source: string; notice: string };
+type Risk = { volatility_pct: number | null; sharpe: number | null; max_drawdown_pct: number | null; source: string; notice: string };
+type NewsItem = { title: string; summary: string; source: string };
+type Status = Record<string, Record<string, unknown>>;
+type Page = "Command Center" | "Opportunity Scanner" | "Investment Committee" | "Portfolio" | "Market Intelligence" | "Investment Journal" | "Backtesting" | "Paper Trading" | "Broker Integration" | "Settings";
+type Mode = { kind: "loading" } | { kind: "api" } | { kind: "demo"; reason: string };
+
+const snapshot = demoSnapshot as unknown as { notice: string; scanner: ScanItem[]; analyses: Record<string, { analysis: Analysis; committee: Committee }>; macro: Macro; portfolio: Portfolio; risk: Risk };
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+// A static host (GitHub Pages) has no API server unless one is configured explicitly.
+const STATIC_HOST = !API_BASE && location.hostname.endsWith("github.io");
+
+async function api<T>(path: string, timeoutMs = 25000): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { signal: AbortSignal.timeout(timeoutMs) });
+  if (!response.ok) throw new Error(`${path} → HTTP ${response.status}`);
+  return response.json() as Promise<T>;
 }
-function Command({assets,onOpen,range,setRange}:{assets:Asset[],onOpen:(a:Asset)=>void,range:string,setRange:(x:string)=>void}){const top=assets.filter(a=>a.price).sort((a,b)=>b.score-a.score).slice(0,5);return <>
- <section className="kpis"><Kpi title="Portfolio Value" value="€12,450" sub="+€682.40 (0.67%) Today" chart/><Kpi title="Total Return" value="+12.4%" sub="+€1,245 since inception" chart green/><Kpi title="Risk Level" value="Moderate" sub="Balanced portfolio risk" risk/><Kpi title="Cash" value="17%" sub="€2,116 available" donut/></section>
- <section className="two-col"><div className="card opportunities"><Header title="Top Investment Opportunities" eyebrow="AI-SCORED COMPANIES BASED ON YOUR CRITERIA" action="View all"/><div className="op-head"><span>#</span><span>Company</span><span>Ticker</span><span>AI Score</span><span>1Y Return</span><span>Action</span></div>{top.map((a,i)=><button className="op-row" key={a.symbol} onClick={()=>onOpen(a)}><span>{i+1}</span><div className="company"><Logo symbol={a.symbol}/><b>{a.name}</b></div><span>{a.symbol}</span><strong>{a.score}/100</strong><em className="up">+{Math.abs(a.return1y)}.2%</em><small>View</small></button>)}</div><div className="card performance"><Header title="Portfolio Performance" action="1M   3M   6M   1Y   All"/><div className="legend"><span><i className="portfolio"/>Your Portfolio</span><span><i className="benchmark"/>S&P 500</span><span><i className="cash"/>Cash</span></div><Chart/></div></section>
- <section className="card stock-detail"><div className="stock-head"><div className="stock-title"><Logo symbol="MSFT" big/><div><h2>Microsoft (MSFT)</h2><p>Technology · Software · Large Cap</p></div></div><div className="stock-price"><strong>{assets.find(a=>a.symbol==="MSFT")?.price?money(assets.find(a=>a.symbol==="MSFT")!.price):"$415.20"}</strong><em className="up">+4.32 (+1.05%)</em><span>Today</span></div><div className="stock-actions"><button className="primary">Add to Watchlist</button><button>Trade</button></div></div><div className="tabs"><b>Overview</b><span>Analysis</span><span>Financials</span><span>Technicals</span><span>News</span><span>Options</span></div><div className="stock-grid"><div className="price-chart"><div className="range-tabs">{["1D","1W","1M","3M","6M","1Y","5Y"].map(x=><button className={range===x?"sel":""} onClick={()=>setRange(x)} key={x}>{x}</button>)}</div><h4>Price history</h4><BigChart/></div><ScoreCard/><Thesis/></div></section>
- <section className="bottom-grid"><div className="card"><Header title="Recent Analysis" action="View all"/><div className="mini-item"><Logo symbol="MSFT"/><div><b>Microsoft (MSFT)</b><span>AI analysis completed · 2h ago</span></div><small>Buy Watch</small></div></div><div className="card"><Header title="Upcoming Events" action="View all"/><div className="mini-item"><CalendarDays/><div><b>ASML Earnings Call</b><span>16 Sep 2026</span></div><small className="purple">Earnings</small></div></div><Allocation/></section></>}
-function Kpi({title,value,sub,chart,risk,donut,green}:{title:string,value:string,sub:string,chart?:boolean,risk?:boolean,donut?:boolean,green?:boolean}){return <div className="card kpi"><span>{title}</span><strong className={green?"green":""}>{value}</strong><small>{sub}</small>{chart&&<Spark/>}{risk&&<div className="riskbar"><i/><i/><i/></div>}{donut&&<div className="donut"/>}</div>}
-function Header({title,eyebrow,action}:{title:string,eyebrow?:string,action?:string}){return <div className="card-header"><div>{eyebrow&&<span className="eyebrow">{eyebrow}</span>}<h3>{title}</h3></div>{action&&<button className="link">{action}</button>}</div>}
-function Spark(){return <svg className="spark" viewBox="0 0 100 40"><polyline points="0,31 12,21 23,28 35,14 46,20 59,12 69,19 80,7 91,10 100,0" fill="none" stroke="currentColor" strokeWidth="2"/></svg>}
-function Chart(){return <svg className="chart" viewBox="0 0 600 210"><g className="gridlines">{[35,75,115,155,195].map(y=><line x1="0" x2="600" y1={y} y2={y} key={y}/>)}</g><polyline points="0,175 30,165 55,168 82,150 105,158 132,134 158,145 184,121 212,132 240,106 270,118 300,92 327,105 350,82 380,91 408,66 438,79 465,57 494,69 520,43 548,51 575,27 600,35" fill="none" stroke="#00e0a4" strokeWidth="3"/><polyline points="0,190 45,183 75,184 110,169 145,172 180,155 220,160 255,143 300,147 340,130 385,136 425,116 470,121 515,103 560,111 600,92" fill="none" stroke="#2488ff" strokeWidth="2"/><polyline points="0,190 80,194 150,191 220,195 290,187 360,191 430,184 500,188 600,180" fill="none" stroke="#9ab1ca" strokeWidth="1.5" strokeDasharray="5 5"/><text x="8" y="205">Oct</text><text x="110" y="205">Dec</text><text x="220" y="205">Feb</text><text x="325" y="205">Apr</text><text x="430" y="205">Jun</text><text x="530" y="205">Aug</text></svg>}
-function BigChart(){return <svg className="big-chart" viewBox="0 0 620 250"><g className="gridlines">{[25,75,125,175,225].map(y=><line x1="0" x2="620" y1={y} y2={y} key={y}/>)}</g><polyline points="0,190 20,176 38,181 55,158 74,165 95,137 115,151 136,126 157,133 178,112 200,119 220,95 240,108 260,89 281,101 303,73 325,87 345,67 365,79 388,57 409,72 430,48 450,61 472,42 494,56 515,35 540,48 560,27 580,38 600,15 620,3" fill="none" stroke="#00e0a4" strokeWidth="3"/><g className="axis"><text x="0" y="245">Sep</text><text x="100" y="245">Nov</text><text x="200" y="245">Jan</text><text x="300" y="245">Mar</text><text x="400" y="245">May</text><text x="500" y="245">Jul</text><text x="590" y="245">Sep</text></g></svg>}
-function ScoreCard(){return <div className="score-card"><h4>AI Investment Score</h4><div className="score-ring"><b>92</b><span>/100</span></div><strong className="candidate">● Strong Candidate</strong><div className="score-list">{[["Fundamental",96],["Growth",91],["Cash Flow",95],["Balance Sheet",94],["Valuation",78],["Momentum",87],["Sentiment",72]].map(([x,n])=><div key={String(x)}><span>{x}</span><b>{n}</b></div>)}<div><span>Macro Sensitivity</span><b className="amber">▣ Moderate</b></div></div></div>}
-function Thesis(){return <div className="thesis"><h4>Investment Thesis</h4><div className="thesis-tabs"><b>Bull Case</b><span>Bear Case</span><span>Verdict</span></div><ul><li>Strong recurring revenue (cloud, enterprise)</li><li>High free cash flow and margin expansion</li><li>AI and cloud growth opportunities</li><li>Strong competitive position</li></ul><h5>Key Risks</h5><ul className="risks"><li>Valuation (trading above historical average)</li><li>AI infrastructure spending</li><li>Regulatory pressure</li></ul><div className="targets"><div><span>Bull Case</span><b>$135 (+30%)</b></div><div><span>Base Case</span><b>$115 (+13%)</b></div><div><span>Bear Case</span><b>$72 (-31%)</b></div></div></div>}
-function Allocation(){return <div className="card allocation"><Header title="Portfolio Allocation"/><div className="allocation-body"><div className="donut large"/><div className="alloc-list">{[["Technology","41%"],["Healthcare","16%"],["Financials","12%"],["Consumer Discretionary","10%"],["Other","21%"]].map(([x,n])=><div key={x}><i/><span>{x}</span><b>{n}</b></div>)}</div></div></div>}
-function Logo({symbol,big=false}:{symbol:string,big?:boolean}){return <span className={`logo ${big?"big":""}`}>{initials(symbol)}</span>}
-function Insights(){return <div className="side-section"><Header title="AI Market Insights" action="View all"/>{[["Fed signals slower rate cuts in 2026","Higher for longer may benefit financials and banks. Watch for market volatility."],["NVIDIA sees strong demand for Blackwell","Analyst upgrades continue after solid earnings. Stock up today."],["European manufacturing shows recovery","PMI rises to 52.3, highest in 2 years."],["Unusual options activity in TSLA","Large call buying detected."],["Insider buying at ASML","CEO bought 5,000 shares (value: €4.2M)."]].map((x,i)=><article className="news" key={x[0]}><span className={`news-icon n${i}`}>✦</span><div><b>{x[0]}</b><p>{x[1]}</p><small>{i+2}h ago</small></div></article>)}</div>}
-function Alerts(){return <div className="side-section"><Header title="Portfolio Alerts" action="View all"/>{[["Technology exposure at 41%","Target: ≤35%","red"],["US exposure at 68%","Target: ≤60%","amber"],["NVDA position up 12% this week","Consider partial profit taking","blue"],["Upcoming earnings (next 7 days)","AAPL, MSFT, META, AMZN","calendar"]].map(x=><div className="alert" key={x[0]}><span className={x[2]}>●</span><div><b>{x[0]}</b><small>{x[1]}</small></div></div>)}</div>}
-function Assistant(){return <div className="assistant"><div className="assistant-title"><Sparkles size={16}/><b>AI Assistant</b></div><p>Your portfolio has become overly concentrated in technology. Consider reducing exposure before adding another tech position.</p><div className="ask">Ask a question... <span>➤</span></div></div>}
-function Watchlist({assets,onOpen}:{assets:Asset[],onOpen:(a:Asset)=>void}){return <div className="watchlist"><Header title="Watchlist" action="View all"/>{assets.slice(0,5).map(a=><button onClick={()=>onOpen(a)} key={a.symbol}><Logo symbol={a.symbol}/><span><b>{a.name}</b><small>{a.symbol}</small></span><em className={a.change_pct!=null&&a.change_pct<0?"down":"up"}>{a.price?money(a.price):"—"} <strong>{pct(a.change_pct)}</strong></em></button>)}</div>}
-function PageContent({page,assets,onOpen}:{page:Page,assets:Asset[],onOpen:(a:Asset)=>void}){return <section className="page-panel"><Header title={page}/>{page==="Opportunity Scanner"?<div className="large-table">{assets.map(a=><button onClick={()=>onOpen(a)} key={a.symbol}><Logo symbol={a.symbol}/><span><b>{a.name}</b><small>{a.symbol} · {a.market}</small></span><strong>{a.score}/100</strong><em>{money(a.price,a.currency)}</em><i>{pct(a.change_pct)}</i></button>)}</div>:<><div className="empty-hero"><Target size={30}/><h2>{page}</h2><p>This module is connected to the platform architecture and preserves deterministic calculations separately from AI synthesis.</p><div><span>Live data</span><span>Audit trail</span><span>Human approval</span></div></div><div className="feature-grid"><div><Gauge/><b>Evidence-first analytics</b><p>Source, timestamp and data quality remain visible before a decision is generated.</p></div><div><ShieldAlert/><b>Execution controls</b><p>Live trading stays disabled by default and requires explicit human approval.</p></div><div><LineChart/><b>Reproducible calculations</b><p>Backtests, risk and portfolio calculations are deterministic and testable.</p></div></div></>}</section>}
-function AssetModal({asset,close}:{asset:Asset,close:()=>void}){return <div className="modal" onClick={close}><div className="modal-card" onClick={e=>e.stopPropagation()}><button className="modal-close" onClick={close}><X/></button><span className="eyebrow">ASSET INTELLIGENCE</span><h2>{asset.name} ({asset.symbol})</h2><div className="modal-price"><strong>{money(asset.price,asset.currency||"USD")}</strong><em className={asset.change_pct!=null&&asset.change_pct<0?"down":"up"}>{pct(asset.change_pct)}</em></div><div className="modal-grid"><div><b>AI score</b><strong>{asset.score}/100</strong></div><div><b>Sector</b><strong>{asset.sector}</strong></div><div><b>Provider</b><strong>{asset.provider}</strong></div><div><b>Status</b><strong>{asset.status}</strong></div></div><p className="notice">Investment evidence is only considered current when source data is available and timestamped. No live order is created from this view.</p></div></div>}
-createRoot(document.getElementById("root")!).render(<StrictMode><App/></StrictMode>);
+
+// ---------- Formatting ----------
+function money(v: number | null | undefined, c = "USD") {
+  if (v == null || !Number.isFinite(v)) return "—";
+  try { return new Intl.NumberFormat("en-GB", { style: "currency", currency: c || "USD", maximumFractionDigits: 2 }).format(v); }
+  catch { return v.toFixed(2); }
+}
+const num = (v: number | null | undefined, d = 2) => (v == null || !Number.isFinite(v) ? "—" : v.toLocaleString("en-GB", { maximumFractionDigits: d }));
+const pct = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`);
+// Neutral score bands instead of BUY/SELL wording: this is a research tool, not a recommendation service.
+function band(score: number) {
+  if (score >= 85) return { label: "High score", cls: "b-high" };
+  if (score >= 72) return { label: "Watch", cls: "b-watch" };
+  if (score >= 60) return { label: "Neutral", cls: "b-neutral" };
+  return { label: "Low score", cls: "b-low" };
+}
+const statusCls = (s: string) => (s === "LIVE" ? "st-live" : s === "DEMO" ? "st-demo" : "st-off");
+
+// ---------- App ----------
+function App() {
+  const [mode, setMode] = useState<Mode>({ kind: "loading" });
+  const [page, setPage] = useState<Page>("Command Center");
+  const [scan, setScan] = useState<ScanItem[]>([]);
+  const [markets, setMarkets] = useState<MarketRow[] | null>(null);
+  const [macro, setMacro] = useState<Macro | null>(null);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+
+  useEffect(() => {
+    const useDemo = (reason: string) => { setScan(snapshot.scanner); setMacro(snapshot.macro); setMarkets(null); setMode({ kind: "demo", reason }); };
+    if (STATIC_HOST) { useDemo("This static site has no API server attached."); return; }
+    Promise.all([api<{ items: ScanItem[] }>("/api/scanner?limit=100", 60000), api<{ markets: MarketRow[]; macro: Macro }>("/api/dashboard", 60000)])
+      .then(([s, d]) => { setScan(s.items); setMarkets(d.markets); setMacro(d.macro); setMode({ kind: "api" }); })
+      .catch(() => useDemo("The API server could not be reached."));
+  }, []);
+
+  const filtered = useMemo(() => scan.filter(a => `${a.symbol} ${a.name} ${a.market}`.toLowerCase().includes(search.toLowerCase())), [scan, search]);
+  const nav = (x: Page, icon: ReactNode) => <button className={`nav-item ${page === x ? "active" : ""}`} onClick={() => setPage(x)}>{icon}<span>{x}</span></button>;
+
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <div className="brand"><BrainCircuit size={28} /><div><strong>INVESTMENT INTELLIGENCE</strong><span>Research. Challenge. Decide.</span></div></div>
+      <nav>{nav("Command Center", <Home size={16} />)}{nav("Opportunity Scanner", <Search size={16} />)}{nav("Investment Committee", <Users size={16} />)}{nav("Portfolio", <WalletCards size={16} />)}{nav("Market Intelligence", <Newspaper size={16} />)}{nav("Investment Journal", <BookOpen size={16} />)}</nav>
+      <div className="tools"><span>TOOLS</span>{nav("Backtesting", <LineChart size={16} />)}{nav("Paper Trading", <CircleDollarSign size={16} />)}{nav("Broker Integration", <ShieldAlert size={16} />)}{nav("Settings", <SettingsIcon size={16} />)}</div>
+    </aside>
+    <main className="main">
+      <header className="topbar">
+        <div className="searchbox"><Search size={16} /><input value={search} onChange={e => { setSearch(e.target.value); if (page !== "Opportunity Scanner" && page !== "Command Center") setPage("Opportunity Scanner"); }} placeholder="Filter the research universe by name, ticker or market…" /></div>
+      </header>
+      <ModeBanner mode={mode} />
+      <div className="workspace">
+        <div className="primary">
+          <div className="page-heading"><h1>{page}</h1><span className="today">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span></div>
+          {mode.kind === "loading" ? <div className="card pad">Connecting to the research API… A free-tier server can take up to a minute to wake up.</div> :
+            <PageBody page={page} mode={mode} scan={filtered} markets={markets} macro={macro} onOpen={setSelected} />}
+        </div>
+        <aside className="rightbar"><SourcesPanel mode={mode} scan={scan} /><MacroPanel macro={macro} /><Disclaimer /></aside>
+      </div>
+      <footer className="footer">Research and education tool. Not investment advice, not a broker, and no orders are placed from this site. Scores are model outputs from stated inputs and can be wrong.</footer>
+    </main>
+    {selected && <div className="modal" onClick={() => setSelected(null)}><div className="modal-card" onClick={e => e.stopPropagation()}><button className="modal-close" aria-label="Close" onClick={() => setSelected(null)}><X /></button><AssetDetail symbol={selected} mode={mode} /></div></div>}
+  </div>;
+}
+
+function ModeBanner({ mode }: { mode: Mode }) {
+  if (mode.kind === "api") return <div className="banner ok"><Database size={15} /> Connected to the research API. Each figure shows its source and whether it is LIVE or DEMO.</div>;
+  if (mode.kind === "demo") return <div className="banner warn"><Database size={15} /> <span><b>Demo dataset.</b> {mode.reason} You are viewing bundled illustrative data: prices, ratios and scores are <b>not live</b> and must not be used for decisions.</span></div>;
+  return null;
+}
+
+function PageBody({ page, mode, scan, markets, macro, onOpen }: { page: Page; mode: Mode; scan: ScanItem[]; markets: MarketRow[] | null; macro: Macro | null; onOpen: (s: string) => void }) {
+  switch (page) {
+    case "Command Center": return <CommandCenter mode={mode} scan={scan} markets={markets} onOpen={onOpen} />;
+    case "Opportunity Scanner": return <Scanner scan={scan} onOpen={onOpen} />;
+    case "Investment Committee": return <CommitteePage mode={mode} scan={scan} />;
+    case "Portfolio": return <PortfolioPage mode={mode} />;
+    case "Market Intelligence": return <IntelligencePage mode={mode} macro={macro} />;
+    case "Paper Trading": return <PaperPage mode={mode} />;
+    case "Settings": return <SettingsPage mode={mode} />;
+    case "Investment Journal": return <NotBuilt title="Investment Journal" text="Saving research snapshots and decisions per account is not built yet. It is planned so every decision keeps its evidence, date and outcome." />;
+    case "Backtesting": return <NotBuilt title="Backtesting" text="The backtest engine exists in the API, but no historical price data is connected yet. Results are not shown until real history is available, so no curve here is invented." />;
+    case "Broker Integration": return <NotBuilt title="Broker Integration" text="Live trading is disabled. An optional Alpaca paper-trading (simulated) connection exists in the API and every order requires explicit human approval. Real-money execution would require a licensed broker and legal review." />;
+  }
+}
+
+// ---------- Command Center ----------
+function CommandCenter({ mode, scan, markets, onOpen }: { mode: Mode; scan: ScanItem[]; markets: MarketRow[] | null; onOpen: (s: string) => void }) {
+  const live = scan.filter(a => a.price_status === "LIVE").length;
+  const top = [...scan].sort((a, b) => b.score - a.score);
+  return <>
+    <section className="kpis">
+      <Kpi title="Research universe" value={`${scan.length} assets`} sub="US, European and Ghana equities" />
+      <Kpi title="Live price coverage" value={`${live} / ${scan.length}`} sub={live ? "Quotes from Yahoo Finance" : "No live quotes in this view"} />
+      <Kpi title="Highest model score" value={top[0] ? `${top[0].score}` : "—"} sub={top[0] ? `${top[0].name} (${top[0].symbol})` : ""} />
+      <Kpi title="Data mode" value={mode.kind === "api" ? "API" : "DEMO"} sub={mode.kind === "api" ? "Server-side calculations" : "Bundled illustrative snapshot"} />
+    </section>
+    <section className="card pad">
+      <Header title="Market benchmarks" eyebrow="LIVE WHEN AVAILABLE · NO FALLBACK VALUES" />
+      {markets ? <div className="ticker-row">{markets.map(m => <div className="ticker" key={m.symbol}><span>{m.name}</span><strong>{m.value == null ? "Unavailable" : num(m.value)}</strong><em className={(m.change_pct ?? 0) < 0 ? "down" : "up"}>{pct(m.change_pct)}</em></div>)}</div>
+        : <p className="muted">Benchmark quotes are only shown when the API retrieves them live. None are displayed in demo mode.</p>}
+    </section>
+    <section className="card pad">
+      <Header title="Highest-scoring assets" eyebrow="RANKED BY THE TRANSPARENT FACTOR MODEL" />
+      <ScanTable rows={top.slice(0, 8)} onOpen={onOpen} />
+    </section>
+    {top[0] && <section className="card pad"><AssetDetail symbol={top[0].symbol} mode={mode} /></section>}
+  </>;
+}
+
+function Kpi({ title, value, sub }: { title: string; value: string; sub: string }) {
+  return <div className="card kpi"><span>{title}</span><strong>{value}</strong><small>{sub}</small></div>;
+}
+function Header({ title, eyebrow }: { title: string; eyebrow?: string }) {
+  return <div className="card-header">{eyebrow && <span className="eyebrow">{eyebrow}</span>}<h3>{title}</h3></div>;
+}
+
+function ScanTable({ rows, onOpen }: { rows: ScanItem[]; onOpen: (s: string) => void }) {
+  if (!rows.length) return <p className="muted">No assets match this filter.</p>;
+  return <div className="table-wrap"><table className="table">
+    <thead><tr><th>Asset</th><th>Market</th><th className="r">Price</th><th className="r">Day</th><th className="r">Score</th><th>Band</th><th>Price data</th></tr></thead>
+    <tbody>{rows.map(a => { const b = band(a.score); return <tr key={a.symbol} onClick={() => onOpen(a.symbol)} tabIndex={0} onKeyDown={e => e.key === "Enter" && onOpen(a.symbol)}>
+      <td><b>{a.name}</b><small>{a.symbol}</small></td><td>{a.market}</td><td className="r">{money(a.price, a.currency)}</td>
+      <td className={`r ${(a.change_pct ?? 0) < 0 ? "down" : "up"}`}>{pct(a.change_pct)}</td><td className="r"><b>{a.score.toFixed(1)}</b></td>
+      <td><span className={`badge ${b.cls}`}>{b.label}</span></td><td><span className={`badge ${statusCls(a.price_status)}`}>{a.price_status}</span></td></tr>; })}</tbody>
+  </table></div>;
+}
+
+// ---------- Asset detail ----------
+function useAnalysis(symbol: string, mode: Mode) {
+  const [state, setState] = useState<{ data?: Analysis; error?: string }>({});
+  useEffect(() => {
+    setState({});
+    if (mode.kind !== "api") { const hit = snapshot.analyses[symbol]; setState(hit ? { data: hit.analysis } : { error: "Not in the demo dataset." }); return; }
+    api<Analysis>(`/api/assets/${encodeURIComponent(symbol)}/analysis`).then(data => setState({ data })).catch(e => setState({ error: String(e.message || e) }));
+  }, [symbol, mode.kind]);
+  return state;
+}
+
+function AssetDetail({ symbol, mode }: { symbol: string; mode: Mode }) {
+  const { data: a, error } = useAnalysis(symbol, mode);
+  if (error) return <p className="muted">Analysis unavailable: {error}</p>;
+  if (!a) return <p className="muted">Loading analysis…</p>;
+  const b = band(a.score);
+  return <div className="detail">
+    <div className="detail-head">
+      <div><span className="eyebrow">ASSET RESEARCH</span><h2>{a.name} <small>({a.symbol})</small></h2><p className="muted">{a.market} · {a.currency} · macro sensitivity {a.macro_sensitivity}</p></div>
+      <div className="price"><strong>{money(a.price, a.currency)}</strong><em className={(a.change_pct ?? 0) < 0 ? "down" : "up"}>{pct(a.change_pct)}</em><span className={`badge ${statusCls(a.price_status)}`}>{a.price_status}</span><small>{a.price_source}</small></div>
+    </div>
+    <div className="detail-grid">
+      <div className="box">
+        <h4>Model score</h4>
+        <div className="score"><b>{a.score.toFixed(1)}</b><span>/100</span></div>
+        <span className={`badge ${b.cls}`}>{b.label}</span>
+        <div className="bars">{Object.entries(a.breakdown).map(([k, v]) => <div key={k}><span>{k.replace("_", " ")}</span><i><em style={{ width: `${v}%` }} /></i><b>{v}</b></div>)}</div>
+        <p className="tiny">Weights: fundamental 24%, growth 18%, cash flow 16%, valuation 14%, balance sheet 12%, momentum 9%, sentiment 7%. Fundamentals source: {a.fundamental_inputs.source} ({a.fundamental_inputs.status}).</p>
+      </div>
+      <div className="box">
+        <h4>Bull case</h4><ul className="list good">{a.thesis.bull.map(x => <li key={x}>{x}</li>)}</ul>
+        <h4>Bear case</h4><ul className="list bad">{a.thesis.bear.map(x => <li key={x}>{x}</li>)}</ul>
+        <h4>What would invalidate it</h4><p className="small">{a.thesis.invalidation}</p>
+        <p className="question">“{a.thesis.market_question}”</p>
+      </div>
+      <div className="box">
+        <h4>Valuation scenarios</h4>
+        <table className="table compact"><thead><tr><th>Case</th><th className="r">Growth</th><th className="r">Multiple</th><th className="r">Value</th><th className="r">vs price</th></tr></thead>
+          <tbody>{a.valuation.scenarios.map(s => <tr key={s.label}><td>{s.label}</td><td className="r">{s.growth_pct}%</td><td className="r">{s.multiple}x</td><td className="r">{money(s.fair_value, a.currency)}</td><td className={`r ${s.upside_pct < 0 ? "down" : "up"}`}>{pct(s.upside_pct)}</td></tr>)}</tbody></table>
+        <p className="tiny">Simple scenario scaffold from the stated growth and P/E inputs. It is not a price target.</p>
+        <h4>Position-sizing illustration</h4>
+        <p className="small">On a {money(a.risk.model_account_value, a.currency)} model account risking 1% with an {a.risk.stop_loss_pct}% stop: about {num(a.risk.shares, 2)} shares ({num(a.risk.position_weight_pct, 1)}% of the account).</p>
+        <p className="tiny">{a.risk.note}</p>
+      </div>
+    </div>
+  </div>;
+}
+
+// ---------- Pages ----------
+function Scanner({ scan, onOpen }: { scan: ScanItem[]; onOpen: (s: string) => void }) {
+  const [market, setMarket] = useState(""); const [min, setMin] = useState(0);
+  const markets = [...new Set(scan.map(a => a.market))].sort();
+  const rows = scan.filter(a => (!market || a.market === market) && a.score >= min).sort((a, b) => b.score - a.score);
+  return <section className="card pad">
+    <div className="filters">
+      <label>Market <select value={market} onChange={e => setMarket(e.target.value)}><option value="">All markets</option>{markets.map(m => <option key={m}>{m}</option>)}</select></label>
+      <label>Minimum score <input type="number" min={0} max={100} value={min} onChange={e => setMin(Number(e.target.value) || 0)} /></label>
+      <span className="muted">{rows.length} of {scan.length} assets</span>
+    </div>
+    <ScanTable rows={rows} onOpen={onOpen} />
+  </section>;
+}
+
+function CommitteePage({ mode, scan }: { mode: Mode; scan: ScanItem[] }) {
+  const [symbol, setSymbol] = useState(scan[0]?.symbol ?? "MSFT");
+  const [c, setC] = useState<{ data?: Committee; error?: string }>({});
+  useEffect(() => {
+    setC({});
+    if (mode.kind !== "api") { const hit = snapshot.analyses[symbol]; setC(hit ? { data: hit.committee } : { error: "Not in the demo dataset." }); return; }
+    api<Committee>(`/api/assets/${encodeURIComponent(symbol)}/committee`).then(data => setC({ data })).catch(e => setC({ error: String(e.message || e) }));
+  }, [symbol, mode.kind]);
+  return <section className="card pad">
+    <div className="filters"><label>Asset <select value={symbol} onChange={e => setSymbol(e.target.value)}>{[...scan].sort((a, b) => a.name.localeCompare(b.name)).map(a => <option key={a.symbol} value={a.symbol}>{a.name} ({a.symbol})</option>)}</select></label></div>
+    {c.error && <p className="muted">Committee packet unavailable: {c.error}</p>}
+    {!c.data && !c.error && <p className="muted">Loading…</p>}
+    {c.data && <div className="committee">
+      <div className="kpis three"><Kpi title="Model score" value={c.data.score.toFixed(1)} sub={band(c.data.score).label} /><Kpi title="Signal strength (heuristic)" value={`${c.data.confidence}`} sub="Distance of the score from neutral, not a probability" /><Kpi title="Decision state" value="Human decision" sub="No automatic execution" /></div>
+      {c.data.analysis ? <div className="box"><h4>AI synthesis ({c.data.model_provider})</h4><p className="small pre">{c.data.analysis}</p></div> :
+        <div className="two"><div className="box"><h4>Arguments for</h4><ul className="list good">{c.data.bull_case.map(x => <li key={x}>{x}</li>)}</ul></div><div className="box"><h4>Arguments against</h4><ul className="list bad">{c.data.bear_case.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
+      <p className="question">Challenge: “{c.data.decision_question}”</p>
+      <p className="tiny">Generated {new Date(c.data.timestamp).toLocaleString("en-GB")}. {c.data.analysis ? "Model-written text is a synthesis of the supplied facts only." : "Rule-based packet; no AI model is configured."}</p>
+    </div>}
+  </section>;
+}
+
+function useEndpoint<T>(path: string, mode: Mode, demo?: T) {
+  const [s, setS] = useState<{ data?: T; error?: string }>({});
+  useEffect(() => {
+    if (mode.kind !== "api") { setS(demo ? { data: demo } : { error: "Requires the API server (not available on the static demo)." }); return; }
+    api<T>(path).then(data => setS({ data })).catch(e => setS({ error: String(e.message || e) }));
+  }, [path, mode.kind]);
+  return s;
+}
+
+function PortfolioPage({ mode }: { mode: Mode }) {
+  const p = useEndpoint<Portfolio>("/api/portfolio", mode, snapshot.portfolio);
+  const r = useEndpoint<Risk>("/api/risk", mode, snapshot.risk);
+  if (!p.data) return <section className="card pad muted">{p.error ?? "Loading…"}</section>;
+  return <section className="card pad">
+    <div className="banner warn inline"><b>Sample portfolio.</b> {p.data.notice}</div>
+    <div className="kpis"><Kpi title="Value" value={num(p.data.value)} sub="Mixed currencies, unconverted" /><Kpi title="P&L" value={num(p.data.pnl)} sub={pct(p.data.return_pct)} /><Kpi title="Cash" value={`${p.data.cash_pct}%`} sub={num(p.data.cash)} /><Kpi title="Risk flags" value={p.data.risk_flags.length ? p.data.risk_flags.join(", ") : "None"} sub="Concentration > 35%, cash < 5%" /></div>
+    <h4>Allocation</h4>
+    <div className="bars wide">{p.data.allocation.map(x => <div key={x.symbol}><span>{x.symbol}</span><i><em style={{ width: `${x.weight_pct}%` }} /></i><b>{x.weight_pct}%</b></div>)}</div>
+    {r.data && <><h4>Risk metrics</h4><p className="small">Volatility {num(r.data.volatility_pct)}% · Sharpe {num(r.data.sharpe)} · Max drawdown {num(r.data.max_drawdown_pct)}%</p><p className="tiny">{r.data.notice}</p></>}
+  </section>;
+}
+
+function IntelligencePage({ mode, macro }: { mode: Mode; macro: Macro | null }) {
+  const n = useEndpoint<{ items: NewsItem[]; status: string }>("/api/intelligence/news", mode);
+  return <>
+    <section className="card pad"><Header title="Headlines" eyebrow="RSS FEEDS · SOURCE LINKED" />
+      {n.error && <p className="muted">{n.error}</p>}{!n.data && !n.error && <p className="muted">Loading…</p>}
+      {n.data && (n.data.items.length ? <ul className="news">{n.data.items.map(i => <li key={i.title + i.source}><a href={i.source.startsWith("http") ? i.source : undefined} target="_blank" rel="noreferrer noopener">{i.title}</a>{i.summary && <p>{i.summary}</p>}</li>)}</ul> : <p className="muted">No headlines could be retrieved from the feeds right now.</p>)}
+    </section>
+    {macro && <section className="card pad"><Header title={`Macro regime: ${macro.regime}`} /><MacroList macro={macro} /></section>}
+  </>;
+}
+
+function PaperPage({ mode }: { mode: Mode }) {
+  const s = useEndpoint<{ cash: number; equity: number; positions: unknown[]; orders: unknown[] }>("/api/paper-trading", mode);
+  return <section className="card pad">
+    <p className="small">Paper trading is simulated. No real money, no real orders. The simulated account currently resets when the server restarts (persistence is planned).</p>
+    {s.error && <p className="muted">{s.error}</p>}
+    {s.data && <div className="kpis three"><Kpi title="Simulated cash" value={num(s.data.cash)} sub="Starting balance 100,000" /><Kpi title="Simulated equity" value={num(s.data.equity)} sub="" /><Kpi title="Simulated orders" value={`${s.data.orders.length}`} sub={`${s.data.positions.length} open positions`} /></div>}
+  </section>;
+}
+
+function SettingsPage({ mode }: { mode: Mode }) {
+  const s = useEndpoint<Status>("/api/status", mode);
+  return <section className="card pad">
+    <p className="small">API base: <code>{API_BASE || (STATIC_HOST ? "none (static site)" : "same origin")}</code></p>
+    {s.error && <p className="muted">{s.error}</p>}
+    {s.data && <table className="table compact"><tbody>{Object.entries(s.data).map(([k, v]) => <tr key={k}><td><b>{k.replace("_", " ")}</b></td><td>{Object.entries(v).map(([kk, vv]) => `${kk}: ${String(vv)}`).join(" · ")}</td></tr>)}</tbody></table>}
+  </section>;
+}
+
+function NotBuilt({ title, text }: { title: string; text: string }) {
+  return <section className="card pad notbuilt"><span className="badge st-off">NOT AVAILABLE YET</span><h2>{title}</h2><p>{text}</p></section>;
+}
+
+// ---------- Side panels ----------
+function SourcesPanel({ mode, scan }: { mode: Mode; scan: ScanItem[] }) {
+  const live = scan.filter(a => a.price_status === "LIVE").length;
+  const sec = scan.filter(a => a.fundamental_inputs.status === "LIVE").length;
+  return <div className="side card pad"><Header title="Data sources" />
+    <ul className="sources">
+      <li><span className={`dot ${live ? "st-live" : "st-demo"}`} />Prices: {live ? `${live} live (Yahoo Finance)` : "demo values"}</li>
+      <li><span className={`dot ${sec ? "st-live" : "st-demo"}`} />Fundamentals: {sec ? `${sec} from SEC EDGAR` : "demo values"}</li>
+      <li><span className="dot st-off" />Ghana (GSE): no live feed yet</li>
+      <li><span className="dot st-off" />Live trading: disabled</li>
+    </ul>
+    {mode.kind === "demo" && <p className="tiny">All figures on this page come from the bundled demo dataset.</p>}
+  </div>;
+}
+function MacroList({ macro }: { macro: Macro }) {
+  return <><ul className="sources">{macro.drivers.map(d => <li key={d.name}><b>{d.name}</b> · {d.impact} impact<br /><span className="tiny">{d.note}</span></li>)}</ul><p className="tiny">{macro.disclaimer}</p></>;
+}
+function MacroPanel({ macro }: { macro: Macro | null }) {
+  if (!macro) return null;
+  return <div className="side card pad"><Header title={`Macro: ${macro.regime}`} eyebrow="RULE-BASED LABELS" /><MacroList macro={macro} /></div>;
+}
+function Disclaimer() {
+  return <div className="side card pad"><Header title="How to read this" /><p className="tiny">Scores combine stated inputs with fixed weights. They describe the data, not the future. Always check the source and status badge of each figure, and consult a licensed adviser before investing.</p></div>;
+}
+
+createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);

@@ -6,13 +6,15 @@ const userKey = "ii_user";
 
 type User = { id: number; name: string; email: string; created_at: number };
 const root = document.getElementById("root")!;
-root.style.visibility = "hidden";
+// A static host (GitHub Pages) has no account server: show the labelled demo directly.
+const STATIC_HOST = !API_BASE && location.hostname.endsWith("github.io");
+if (!STATIC_HOST) root.style.visibility = "hidden";
 
 function api(path: string, options: RequestInit = {}) {
   return fetch(`${API_BASE}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(60000),
   });
 }
 
@@ -21,9 +23,16 @@ function showAccount(user: User) {
   old?.remove();
   const pill = document.createElement("div");
   pill.id = "ii-account";
-  pill.innerHTML = `<span class="ii-avatar">${user.name.slice(0, 1).toUpperCase()}</span><span><b>${user.name}</b><small>${user.email}</small></span><button id="ii-logout">Log out</button>`;
+  // Built with textContent so a user-chosen name can never inject HTML.
+  const avatar = document.createElement("span"); avatar.className = "ii-avatar"; avatar.textContent = user.name.slice(0, 1).toUpperCase();
+  const info = document.createElement("span");
+  const nameEl = document.createElement("b"); nameEl.textContent = user.name;
+  const emailEl = document.createElement("small"); emailEl.textContent = user.email;
+  info.append(nameEl, emailEl);
+  const logout = document.createElement("button"); logout.id = "ii-logout"; logout.textContent = "Log out";
+  pill.append(avatar, info, logout);
   document.body.appendChild(pill);
-  document.getElementById("ii-logout")!.onclick = () => {
+  logout.onclick = () => {
     localStorage.removeItem(tokenKey);
     localStorage.removeItem(userKey);
     location.reload();
@@ -46,6 +55,7 @@ function gate(message = "") {
       <button class="ii-primary" type="submit" id="ii-submit">Sign in</button>
     </form>
     <button class="ii-switch" id="ii-switch">New here? Create an account</button>
+    <button class="ii-switch hidden" id="ii-demo" type="button">Continue with demo data (no account)</button>
     <p class="ii-footnote">Your account data is stored server-side. Never share your investment or broker credentials.</p>
   </div>`;
   document.body.appendChild(backdrop);
@@ -71,6 +81,10 @@ function gate(message = "") {
     setError("");
   };
 
+  const demo = document.getElementById("ii-demo")!;
+  demo.onclick = () => { backdrop.remove(); root.style.visibility = "visible"; };
+  if (message) demo.classList.remove("hidden");
+
   form.onsubmit = async (event) => {
     event.preventDefault();
     setError("");
@@ -89,7 +103,9 @@ function gate(message = "") {
       root.style.visibility = "visible";
       showAccount(data.user);
     } catch (err) {
-      setError(err instanceof Error && err.message.includes("Failed to fetch") ? "Account service is not connected. Configure VITE_API_BASE_URL for the deployed API." : (err instanceof Error ? err.message : "Unable to sign in."));
+      const network = err instanceof TypeError || (err instanceof Error && /fetch|timed? ?out|abort/i.test(err.message + err.name));
+      setError(network ? "The account server is not reachable right now (a free server can take a minute to wake up). Try again, or continue with demo data." : (err instanceof Error ? err.message : "Unable to sign in."));
+      if (network) demo.classList.remove("hidden");
       submit.removeAttribute("disabled");
       submit.textContent = signup ? "Create account" : "Sign in";
     }
@@ -97,19 +113,25 @@ function gate(message = "") {
 }
 
 async function boot() {
+  if (STATIC_HOST) return;
   const token = localStorage.getItem(tokenKey);
   if (!token) { gate(); return; }
   try {
     const response = await api("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) throw new Error("expired");
+    if (response.status === 401) throw new Error("expired");
+    if (!response.ok) { gate("The account server returned an error. Try again later or continue with demo data."); return; }
     const user = await response.json() as User;
     localStorage.setItem(userKey, JSON.stringify(user));
     root.style.visibility = "visible";
     showAccount(user);
-  } catch {
-    localStorage.removeItem(tokenKey);
-    localStorage.removeItem(userKey);
-    gate();
+  } catch (err) {
+    if (err instanceof Error && err.message === "expired") {
+      localStorage.removeItem(tokenKey);
+      localStorage.removeItem(userKey);
+      gate();
+    } else {
+      gate("The account server is not reachable right now. A free server can take a minute to wake up.");
+    }
   }
 }
 

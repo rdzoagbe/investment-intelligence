@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -46,8 +47,17 @@ _TAGS = {
 }
 
 
+def sec_user_agent() -> str | None:
+    """SEC fair-access policy asks automated clients to declare a real name and contact email.
+
+    We never send a placeholder identity: without SEC_USER_AGENT the SEC adapter stays off.
+    """
+    value = os.getenv("SEC_USER_AGENT", "").strip()
+    return value if "@" in value and "localhost" not in value else None
+
+
 def _fetch_json(url: str) -> dict[str, object]:
-    request = Request(url, headers={"User-Agent": os.getenv("SEC_USER_AGENT", "Investment Intelligence research contact@localhost"), "Accept": "application/json"})
+    request = Request(url, headers={"User-Agent": sec_user_agent() or "", "Accept": "application/json"})
     with urlopen(request, timeout=float(os.getenv("FUNDAMENTALS_TIMEOUT", "8"))) as response:  # noqa: S310
         return json.loads(response.read().decode("utf-8"))
 
@@ -80,9 +90,23 @@ def _latest_annual(facts: dict[str, object], tags: tuple[str, ...]) -> tuple[flo
     return float(latest["val"]), int(latest["fy"]) if str(latest.get("fy", "")).isdigit() else None
 
 
+_SEC_CACHE: dict[str, tuple[float, "FundamentalSnapshot | None"]] = {}
+
+
 def sec_fundamentals(symbol: str) -> FundamentalSnapshot | None:
+    """Annual filings change rarely; cache for 12 hours (failures for 10 minutes)."""
+    key = symbol.upper()
+    hit = _SEC_CACHE.get(key)
+    if hit and time.time() - hit[0] < (43200 if hit[1] else 600):
+        return hit[1]
+    result = _sec_fundamentals_uncached(key)
+    _SEC_CACHE[key] = (time.time(), result)
+    return result
+
+
+def _sec_fundamentals_uncached(symbol: str) -> FundamentalSnapshot | None:
     cik = _SEC_CIK.get(symbol.upper())
-    if not cik:
+    if not cik or not sec_user_agent():
         return None
     try:
         facts = _fetch_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json")

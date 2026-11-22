@@ -18,6 +18,10 @@ services:
         value: live
       - key: CORS_ORIGINS
         value: "*"
+      # SEC EDGAR fundamentals: set to "Your Name your@email" in the Render dashboard.
+      # The SEC asks automated clients to identify themselves; without it the SEC adapter stays off.
+      - key: SEC_USER_AGENT
+        sync: false
 
 databases:
   - name: investment-intelligence-db

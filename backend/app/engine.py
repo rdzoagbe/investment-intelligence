@@ -5,9 +5,13 @@ from math import isfinite
 
 from .data import ASSETS, AssetSnapshot, get_asset
 from .fundamentals import fundamentals_for_asset
-from .market_data import live_quotes
+from .market_data import live_quotes, quote_dict, quote_for_asset
 from .risk import position_risk
 from .valuation import scenario_values
+
+
+# Position sizing is illustrated against a fixed model account, not a real portfolio.
+MODEL_ACCOUNT_VALUE = 10_000.0
 
 
 def clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
@@ -51,12 +55,12 @@ def analyze_asset(symbol: str) -> dict[str, object] | None:
     asset = get_asset(symbol)
     if asset is None:
         return None
-    quote = next((q for q in live_quotes() if q["symbol"] == asset.symbol), None)
+    quote = quote_dict(quote_for_asset(asset))
     scored = score_asset(asset, quote)
     current_price = float(scored["price"])
     scenarios = scenario_values(current_price, asset.revenue_growth_pct, asset.pe_ratio)
     base = next(item for item in scenarios if item["label"] == "Base")
-    risk = position_risk(portfolio_value=12450, entry_price=current_price, stop_price=current_price * 0.92, max_risk_pct=1.0)
+    risk = position_risk(portfolio_value=MODEL_ACCOUNT_VALUE, entry_price=current_price, stop_price=current_price * 0.92, max_risk_pct=1.0)
     return {
         **scored,
         "thesis": {
@@ -66,7 +70,7 @@ def analyze_asset(symbol: str) -> dict[str, object] | None:
             "market_question": "What does the market already know that this score may be missing?",
         },
         "valuation": {"scenarios": scenarios, "base_case": base},
-        "risk": risk,
+        "risk": {**risk, "model_account_value": MODEL_ACCOUNT_VALUE, "stop_loss_pct": 8.0, "note": "Illustrative sizing for a model account: 1% risk with an 8% stop. Not a recommendation."},
         "raw_inputs": asdict(asset),
         "data_status": "LIVE_MARKET_DATA" if scored["price_status"] == "LIVE" else "DEMO_DATASET",
     }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from fastapi import FastAPI, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -11,9 +12,9 @@ from .broker import gateway
 from .committee import build_committee
 from .data import ASSETS, get_asset
 from .engine import analyze_asset, scanner
-from .fundamentals import fundamentals_for_symbol
+from .fundamentals import fundamentals_for_symbol, sec_user_agent
 from .intelligence import bull_bear, macro_snapshot, market_intelligence
-from .market_data import live_quotes, market_data_status
+from .market_data import index_quotes, live_quotes, market_data_status
 from .paper_trading import paper_account
 from .portfolio import Holding, portfolio_snapshot, risk_metrics
 
@@ -101,12 +102,17 @@ def asset_fundamentals(symbol: str) -> dict[str, object]:
 def news() -> dict[str, object]: return market_intelligence()
 @app.get("/api/intelligence/macro")
 def macro() -> dict[str, object]: return macro_snapshot()
+# Demo holdings: clearly labelled sample data until user portfolios are stored per account.
+DEMO_HOLDINGS = [Holding("MSFT", 10, 350, 415.2, "USD"), Holding("ASML", 5, 600, 672.4, "EUR"), Holding("VISA", 8, 250, 277.3, "USD")]
+DEMO_NOTICE = "Sample holdings for demonstration only. Not a real account and not live prices."
+
+
 @app.get("/api/portfolio")
 def portfolio() -> dict[str, object]:
-    demo = [Holding("MSFT", 10, 350, 415.2, "USD"), Holding("ASML", 5, 600, 672.4, "EUR"), Holding("VISA", 8, 250, 277.3, "USD")]
-    return portfolio_snapshot(demo, cash=2117, benchmark_return_pct=9.8)
+    return {**portfolio_snapshot(DEMO_HOLDINGS, cash=2117, benchmark_return_pct=9.8), "source": "DEMO_HOLDINGS", "notice": DEMO_NOTICE}
 @app.get("/api/risk")
-def risk() -> dict[str, object]: return risk_metrics([0.004, -0.002, 0.006, 0.003, -0.004, 0.005, 0.002, -0.001])
+def risk() -> dict[str, object]:
+    return {**risk_metrics([0.004, -0.002, 0.006, 0.003, -0.004, 0.005, 0.002, -0.001]), "source": "ILLUSTRATIVE_RETURNS", "notice": "Calculated on an illustrative return series until real portfolio history is stored."}
 
 @app.post("/api/backtest")
 def backtest(request: BacktestRequest) -> dict[str, object]:
@@ -127,8 +133,29 @@ def broker_execute(request: BrokerApproval) -> dict[str, object]:
     order = gateway.preview(request.symbol, request.side, request.quantity, request.order_type)
     return gateway.execute(order, request.human_approved).__dict__
 
+@app.get("/api/status")
+def status() -> dict[str, object]:
+    return {
+        "market_data": {"mode": os.getenv("MARKET_DATA_MODE", "live"), "provider": "Yahoo Finance chart API (unofficial; personal research use)"},
+        "fundamentals": {"mode": os.getenv("FUNDAMENTALS_MODE", "live"), "sec_enabled": sec_user_agent() is not None, "note": "Set SEC_USER_AGENT to 'Name email@domain' to enable SEC EDGAR fundamentals."},
+        "ai_synthesis": {"enabled": bool(os.getenv("OPENAI_API_KEY"))},
+        "paper_broker": {"enabled": gateway.paper_enabled},
+        "live_trading": {"enabled": False, "note": "Live execution is blocked in this build."},
+        "portfolio": {"source": "DEMO_HOLDINGS"},
+    }
+
+
 @app.get("/api/dashboard")
 def dashboard() -> dict[str, object]:
-    ranked, quotes = scanner(5), live_quotes(); top = ranked[0]
-    live_by_symbol = {q["symbol"]: q for q in quotes if q["status"] == "LIVE"}
-    return {"portfolio": {"value": 12450, "total_return_pct": 12.4, "benchmark_return_pct": 9.8, "risk_level": "Moderate", "volatility_pct": 14.8, "cash_pct": 17.0, "cash_value": 2117}, "markets": [{"name": "S&P 500", "value": 5842, "change_pct": 0.72}, {"name": "NASDAQ", "value": 18771, "change_pct": 0.91}, {"name": "DAX", "value": 23456, "change_pct": 0.48}, {"name": "EUR/USD", "value": 1.102, "change_pct": 0.18}, {"name": "Gold", "value": 2534, "change_pct": 0.36}], "scanner": ranked, "market_quotes": quotes, "scanner_meta": {"universe_size": len(ASSETS), "live_price_coverage": len(live_by_symbol)}, "committee": {"symbol": top["symbol"], "verdict": top["verdict"], "score": top["score"], "confidence": 50 + abs(float(top["score"]) - 75), "approval_state": "HUMAN_DECISION_REQUIRED", "question": "What does the market already know that this score may be missing?"}, "insights": [{"type": "MACRO", "text": "Central-bank expectations remain a key driver for long-duration growth assets."}, {"type": "SECTOR", "text": "AI infrastructure demand continues to influence semiconductor and cloud valuations."}, {"type": "RISK", "text": "Deterministic scoring, risk checks and portfolio math remain inspectable and separate from AI synthesis."}], "data_status": "LIVE_MARKET_DATA" if live_by_symbol else "DEMO_DATASET"}
+    ranked = scanner(100)
+    live_count = sum(1 for x in ranked if x["price_status"] == "LIVE")
+    top = ranked[0]
+    return {
+        "generated_at": int(time.time()),
+        "scanner": ranked[:5],
+        "scanner_meta": {"universe_size": len(ASSETS), "live_price_coverage": live_count},
+        "markets": index_quotes(),
+        "macro": macro_snapshot(),
+        "committee": {"symbol": top["symbol"], "verdict": top["verdict"], "score": top["score"], "approval_state": "HUMAN_DECISION_REQUIRED", "question": "What does the market already know that this score may be missing?"},
+        "data_status": "LIVE_MARKET_DATA" if live_count else "DEMO_DATASET",
+    }

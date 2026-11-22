@@ -27,3 +27,6 @@ data/*.db
 Thumbs.db
 .vscode/
 .idea/
+
+# Build output copied into the API for single-service hosting
+backend/static/
