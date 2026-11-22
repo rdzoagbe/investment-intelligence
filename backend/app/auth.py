@@ -76,7 +76,7 @@ def _sign(value: str) -> str:
 
 def issue_token(user_id: int) -> str:
     header = _b64(b'{"alg":"HS256","typ":"JWT"}')
-    payload = _b64((f'{"sub":{user_id},"exp":{int(time.time()) + TOKEN_TTL}}').encode())
+    payload = _b64(json.dumps({"sub": user_id, "exp": int(time.time()) + TOKEN_TTL}, separators=(",", ":")).encode())
     return f"{header}.{payload}.{_sign(header + '.' + payload)}"
 
 
