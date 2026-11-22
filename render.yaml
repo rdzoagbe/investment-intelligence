@@ -22,6 +22,13 @@ services:
       # The SEC asks automated clients to identify themselves; without it the SEC adapter stays off.
       - key: SEC_USER_AGENT
         sync: false
+      # Optional: enables generated answers in the research assistant (Claude). Without it,
+      # the assistant lists the evidence it found. OPENAI_API_KEY also works.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Shared secret for /api/jobs/daily-scan (the daily-scan GitHub workflow sends it).
+      - key: JOB_TOKEN
+        generateValue: true
 
 databases:
   - name: investment-intelligence-db

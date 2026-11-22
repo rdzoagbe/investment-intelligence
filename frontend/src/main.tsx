@@ -1,7 +1,8 @@
 import { StrictMode, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { BookOpen, BrainCircuit, CircleDollarSign, Database, Home, LineChart, Newspaper, Search, Settings as SettingsIcon, ShieldAlert, Users, WalletCards, X } from "lucide-react";
+import { Bell, BookOpen, BrainCircuit, Sparkles, Trophy, CircleDollarSign, Database, Home, LineChart, Newspaper, Search, Settings as SettingsIcon, ShieldAlert, Users, WalletCards, X } from "lucide-react";
 import demoSnapshot from "./demo-snapshot.json";
+import { AlertsPage, AssistantPage, TrackRecordPage } from "./insight-pages";
 import { BacktestPage, JournalPage, MyPortfolioPage, PaperTradingPage, PriceHistoryPanel, SaveToJournal } from "./account-pages";
 import { API_BASE, STATIC_HOST, api, band, Header, Kpi, money, num, pct, signedIn, statusCls, type Mode } from "./lib";
 import "./styles.css";
@@ -28,7 +29,7 @@ type Portfolio = { value: number; invested: number; cash: number; cash_pct: numb
 type Risk = { volatility_pct: number | null; sharpe: number | null; max_drawdown_pct: number | null; source: string; notice: string };
 type NewsItem = { title: string; summary: string; source: string };
 type Status = Record<string, Record<string, unknown>>;
-type Page = "Command Center" | "Opportunity Scanner" | "Investment Committee" | "Portfolio" | "Market Intelligence" | "Investment Journal" | "Backtesting" | "Paper Trading" | "Broker Integration" | "Settings";
+type Page = "Command Center" | "AI Assistant" | "Alerts" | "Track Record" | "Opportunity Scanner" | "Investment Committee" | "Portfolio" | "Market Intelligence" | "Investment Journal" | "Backtesting" | "Paper Trading" | "Broker Integration" | "Settings";
 
 const snapshot = demoSnapshot as unknown as { notice: string; scanner: ScanItem[]; analyses: Record<string, { analysis: Analysis; committee: Committee }>; macro: Macro; portfolio: Portfolio; risk: Risk };
 // ---------- App ----------
@@ -40,6 +41,11 @@ function App() {
   const [macro, setMacro] = useState<Macro | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (mode.kind !== "api" || !signedIn()) return;
+    api<{ events: { is_read: number }[] }>("/api/me/alerts").then(d => setUnread(d.events.filter(e => !e.is_read).length)).catch(() => undefined);
+  }, [mode.kind]);
 
   useEffect(() => {
     const useDemo = (reason: string) => { setScan(snapshot.scanner); setMacro(snapshot.macro); setMarkets(null); setMode({ kind: "demo", reason }); };
@@ -50,12 +56,12 @@ function App() {
   }, []);
 
   const filtered = useMemo(() => scan.filter(a => `${a.symbol} ${a.name} ${a.market}`.toLowerCase().includes(search.toLowerCase())), [scan, search]);
-  const nav = (x: Page, icon: ReactNode) => <button className={`nav-item ${page === x ? "active" : ""}`} onClick={() => setPage(x)}>{icon}<span>{x}</span></button>;
+  const nav = (x: Page, icon: ReactNode, badge = 0) => <button className={`nav-item ${page === x ? "active" : ""}`} onClick={() => setPage(x)}>{icon}<span>{x}</span>{badge > 0 && <em className="count" aria-label={`${badge} unread`}>{badge}</em>}</button>;
 
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><BrainCircuit size={28} /><div><strong>INVESTMENT INTELLIGENCE</strong><span>Research. Challenge. Decide.</span></div></div>
-      <nav>{nav("Command Center", <Home size={16} />)}{nav("Opportunity Scanner", <Search size={16} />)}{nav("Investment Committee", <Users size={16} />)}{nav("Portfolio", <WalletCards size={16} />)}{nav("Market Intelligence", <Newspaper size={16} />)}{nav("Investment Journal", <BookOpen size={16} />)}</nav>
+      <nav>{nav("Command Center", <Home size={16} />)}{nav("AI Assistant", <Sparkles size={16} />)}{nav("Alerts", <Bell size={16} />, unread)}{nav("Opportunity Scanner", <Search size={16} />)}{nav("Investment Committee", <Users size={16} />)}{nav("Portfolio", <WalletCards size={16} />)}{nav("Market Intelligence", <Newspaper size={16} />)}{nav("Investment Journal", <BookOpen size={16} />)}{nav("Track Record", <Trophy size={16} />)}</nav>
       <div className="tools"><span>TOOLS</span>{nav("Backtesting", <LineChart size={16} />)}{nav("Paper Trading", <CircleDollarSign size={16} />)}{nav("Broker Integration", <ShieldAlert size={16} />)}{nav("Settings", <SettingsIcon size={16} />)}</div>
     </aside>
     <main className="main">
@@ -67,7 +73,7 @@ function App() {
         <div className="primary">
           <div className="page-heading"><h1>{page}</h1><span className="today">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span></div>
           {mode.kind === "loading" ? <div className="card pad">Connecting to the research API… A free-tier server can take up to a minute to wake up.</div> :
-            <PageBody page={page} mode={mode} scan={filtered} markets={markets} macro={macro} onOpen={setSelected} />}
+            <PageBody page={page} mode={mode} scan={filtered} markets={markets} macro={macro} onOpen={setSelected} onUnread={setUnread} />}
         </div>
         <aside className="rightbar"><SourcesPanel mode={mode} scan={scan} /><MacroPanel macro={macro} /><Disclaimer /></aside>
       </div>
@@ -83,8 +89,11 @@ function ModeBanner({ mode }: { mode: Mode }) {
   return null;
 }
 
-function PageBody({ page, mode, scan, markets, macro, onOpen }: { page: Page; mode: Mode; scan: ScanItem[]; markets: MarketRow[] | null; macro: Macro | null; onOpen: (s: string) => void }) {
+function PageBody({ page, mode, scan, markets, macro, onOpen, onUnread }: { page: Page; mode: Mode; scan: ScanItem[]; markets: MarketRow[] | null; macro: Macro | null; onOpen: (s: string) => void; onUnread: (n: number) => void }) {
   switch (page) {
+    case "AI Assistant": return <AssistantPage mode={mode} />;
+    case "Alerts": return <AlertsPage mode={mode} assets={scan} onUnread={onUnread} />;
+    case "Track Record": return <TrackRecordPage mode={mode} />;
     case "Command Center": return <CommandCenter mode={mode} scan={scan} markets={markets} onOpen={onOpen} />;
     case "Opportunity Scanner": return <Scanner scan={scan} onOpen={onOpen} />;
     case "Investment Committee": return <CommitteePage mode={mode} scan={scan} />;

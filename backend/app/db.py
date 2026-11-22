@@ -25,6 +25,20 @@ _SCHEMA = {
         id {pk}, user_id {int} NOT NULL, symbol TEXT NOT NULL, side TEXT NOT NULL,
         quantity REAL NOT NULL, fill_price REAL NOT NULL, price_status TEXT NOT NULL,
         created_at {int} NOT NULL)""",
+    "assistant_queries": """CREATE TABLE IF NOT EXISTS assistant_queries (
+        id {pk}, user_id {int} NOT NULL, question TEXT NOT NULL, response TEXT NOT NULL,
+        provider TEXT NOT NULL, created_at {int} NOT NULL)""",
+    "alert_rules": """CREATE TABLE IF NOT EXISTS alert_rules (
+        id {pk}, user_id {int} NOT NULL, symbol TEXT NOT NULL, kind TEXT NOT NULL,
+        threshold REAL NOT NULL, active {int} NOT NULL, last_triggered_at {int},
+        created_at {int} NOT NULL)""",
+    "alert_events": """CREATE TABLE IF NOT EXISTS alert_events (
+        id {pk}, user_id {int} NOT NULL, rule_id {int}, symbol TEXT NOT NULL,
+        message TEXT NOT NULL, is_read {int} NOT NULL, created_at {int} NOT NULL)""",
+    "scan_snapshots": """CREATE TABLE IF NOT EXISTS scan_snapshots (
+        id {pk}, snapshot_date TEXT NOT NULL, symbol TEXT NOT NULL, score REAL NOT NULL,
+        price REAL NOT NULL, price_status TEXT NOT NULL, currency TEXT NOT NULL,
+        created_at {int} NOT NULL, UNIQUE(snapshot_date, symbol))""",
 }
 PAPER_STARTING_CASH = 100_000.0
 

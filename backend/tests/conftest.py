@@ -10,6 +10,9 @@ def isolated_db(tmp_path, monkeypatch):
     monkeypatch.setenv("AUTH_DB_PATH", str(tmp_path / "test.db"))
     monkeypatch.delenv("SEC_USER_AGENT", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ASSISTANT_PROVIDER", raising=False)
+    monkeypatch.delenv("JOB_TOKEN", raising=False)
     monkeypatch.setenv("MARKET_DATA_MODE", "demo")
     monkeypatch.setenv("FUNDAMENTALS_MODE", "demo")
     from app import history, market_data

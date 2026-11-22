@@ -1,0 +1,32 @@
+name: Daily scan
+
+# Calls the deployed API once per weekday after US market close to store score
+# snapshots and evaluate alerts. Inactive until both repository secrets are set:
+#   SCAN_URL   e.g. https://<your-service>.onrender.com/api/jobs/daily-scan
+#   JOB_TOKEN  the same value as the JOB_TOKEN environment variable on the server
+on:
+  schedule:
+    - cron: "23 22 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Run daily scan
+        env:
+          SCAN_URL: ${{ secrets.SCAN_URL }}
+          JOB_TOKEN: ${{ secrets.JOB_TOKEN }}
+        run: |
+          if [ -z "$SCAN_URL" ] || [ -z "$JOB_TOKEN" ]; then
+            echo "SCAN_URL or JOB_TOKEN secret not set; skipping."
+            exit 0
+          fi
+          # Free hosting may be asleep: allow time to wake, retry a few times.
+          curl --fail-with-body --silent --show-error --max-time 180 \
+            --retry 3 --retry-delay 30 --retry-all-errors \
+            -X POST "$SCAN_URL" -H "X-Job-Token: $JOB_TOKEN"
