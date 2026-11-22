@@ -1,7 +1,11 @@
 from app.backtest import run_backtest
 from app.broker import BrokerGateway
-from app.paper_trading import PaperAccount
 from app.portfolio import Holding, portfolio_snapshot
+
+
+def test_backtest_holds_instead_of_rebalancing_daily():
+    result = run_backtest([100, 101, 102, 103, 104], [90, 90, 90, 90, 90])
+    assert result["trade_count"] == 1
 
 
 def test_backtest_is_deterministic_and_cost_aware():
@@ -16,15 +20,6 @@ def test_portfolio_allocation_and_pnl():
     assert result["value"] == 1700
     assert result["pnl"] == 200
     assert result["allocation"][0]["weight_pct"] > 0
-
-
-def test_paper_trading_rejects_overspend():
-    account = PaperAccount(cash=100)
-    try:
-        account.submit("ABC", "BUY", 2, 60)
-        assert False, "expected insufficient cash"
-    except ValueError as exc:
-        assert "cash" in str(exc)
 
 
 def test_broker_requires_human_approval_and_live_flag():

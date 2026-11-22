@@ -62,24 +62,47 @@ def _fetch_json(url: str) -> dict[str, object]:
         return json.loads(response.read().decode("utf-8"))
 
 
+def _days(start: str, end: str) -> int | None:
+    try:
+        from datetime import date
+        return (date.fromisoformat(end) - date.fromisoformat(start)).days
+    except (TypeError, ValueError):
+        return None
+
+
 def _annual_values(facts: dict[str, object], tags: tuple[str, ...]) -> list[dict[str, object]]:
+    """Fiscal-year values from 10-K filings, one per period end, newest first.
+
+    A 10-K repeats prior years as comparatives under the same `fy`, so values are
+    keyed by the period they describe (`end`), not by the filing year. Flow items
+    (revenue, cash flow, EPS) must cover roughly a full year; balances have no start.
+    """
     units = facts.get("facts", {}).get("us-gaap", {})
+    best: list[dict[str, object]] = []
+    # Issuers change tags over time; use whichever candidate tag has the most recent period.
     for tag in tags:
         node = units.get(tag)
         if not node:
             continue
-        values = node.get("units", {}).get("USD")
+        unit_map = node.get("units", {})
+        values = unit_map.get("USD") or unit_map.get("USD/shares")
         if not values:
             continue
-        annual = [v for v in values if v.get("form") in {"10-K", "10-K/A"} and v.get("fp") == "FY" and isinstance(v.get("val"), (int, float))]
-        if annual:
-            by_year: dict[str, dict[str, object]] = {}
-            for value in annual:
-                year = str(value.get("fy", ""))
-                if year.isdigit() and (year not in by_year or str(value.get("filed", "")) > str(by_year[year].get("filed", ""))):
-                    by_year[year] = value
-            return sorted(by_year.values(), key=lambda v: int(str(v["fy"])), reverse=True)
-    return []
+        by_end: dict[str, dict[str, object]] = {}
+        for v in values:
+            if v.get("form") not in {"10-K", "10-K/A"} or not isinstance(v.get("val"), (int, float)) or not v.get("end"):
+                continue
+            if v.get("start"):
+                span = _days(str(v["start"]), str(v["end"]))
+                if span is None or not 350 <= span <= 380:
+                    continue
+            end = str(v["end"])
+            if end not in by_end or str(v.get("filed", "")) > str(by_end[end].get("filed", "")):
+                by_end[end] = v
+        ordered = sorted(by_end.values(), key=lambda v: str(v["end"]), reverse=True)
+        if ordered and (not best or str(ordered[0]["end"]) > str(best[0]["end"])):
+            best = ordered
+    return best
 
 
 def _latest_annual(facts: dict[str, object], tags: tuple[str, ...]) -> tuple[float | None, int | None]:
@@ -87,7 +110,7 @@ def _latest_annual(facts: dict[str, object], tags: tuple[str, ...]) -> tuple[flo
     if not values:
         return None, None
     latest = values[0]
-    return float(latest["val"]), int(latest["fy"]) if str(latest.get("fy", "")).isdigit() else None
+    return float(latest["val"]), int(str(latest["end"])[:4])
 
 
 _SEC_CACHE: dict[str, tuple[float, "FundamentalSnapshot | None"]] = {}
@@ -112,7 +135,7 @@ def _sec_fundamentals_uncached(symbol: str) -> FundamentalSnapshot | None:
         facts = _fetch_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json")
         revenue_values = _annual_values(facts, _TAGS["revenue"])
         revenue = float(revenue_values[0]["val"]) if revenue_values else None
-        fy = int(revenue_values[0]["fy"]) if revenue_values and str(revenue_values[0].get("fy", "")).isdigit() else None
+        fy = int(str(revenue_values[0]["end"])[:4]) if revenue_values else None
         prior_revenue = float(revenue_values[1]["val"]) if len(revenue_values) > 1 else None
         operating, _ = _latest_annual(facts, _TAGS["operating_income"])
         cfo, _ = _latest_annual(facts, _TAGS["cfo"])

@@ -20,6 +20,13 @@ The product is designed as an investment research desk rather than a blind tradi
 - **GitHub Pages** (`deploy-pages.yml`): static frontend only. It has no API, so it shows the bundled demo dataset (`frontend/src/demo-snapshot.json`, regenerated with `python backend/scripts/export_demo_snapshot.py`) and skips sign-in.
 - **Render** (`render.yaml`): API + frontend + PostgreSQL, with accounts. Free instances sleep and can take about a minute to wake.
 
+## Signed-in features (API deployment)
+
+- **Portfolio:** your own holdings, valued at current quotes, with volatility and 1-year return from daily history.
+- **Investment journal:** record a decision with your thesis and a review date; the price, score and data sources at that moment are saved with it.
+- **Paper trading:** a simulated 100,000 account per user, stored in the database. Fills use the server's quote, never a price sent by the browser.
+- **Backtesting:** a price-only trend rule versus buy-and-hold on real history. No history means no backtest; nothing is invented.
+
 ## Current stage — V1 + live market-data adapter
 
 The working vertical slice includes:

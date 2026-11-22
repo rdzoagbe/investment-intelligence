@@ -139,3 +139,43 @@ code{background:#0b2944;padding:1px 5px;border-radius:4px}
  .detail-grid,.two,.kpis.three{grid-template-columns:1fr}
  .workspace{padding:12px 16px}
 }
+
+/* Step 2: forms, charts, journal */
+.span-all{grid-column:1/-1}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row-between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{border:1px solid #1d5f9c;background:#092d50;color:#cfe6ff;border-radius:7px;padding:8px 13px;cursor:pointer;font-size:13px}
+.btn:hover{background:#0c3a66}
+.btn.primary{background:linear-gradient(180deg,#1985ff,#0b5fcb);color:#fff;border-color:#1985ff}
+.btn.small{padding:4px 9px;font-size:12px}
+.btn:disabled{opacity:.6;cursor:wait}
+.detail>.btn{margin-top:12px}
+.seg{display:flex;gap:4px}
+.seg button{background:#08223b;border:1px solid #143c60;color:#9ab4d0;border-radius:5px;padding:4px 9px;cursor:pointer;font-size:12px}
+.seg button.on{background:#0a3f72;color:#fff;border-color:#208cff}
+.stats{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:#a3bad1;margin:6px 0}
+.stats b{margin-left:4px}
+.form{display:grid;gap:10px;margin-top:12px}
+.form .filters{margin:0}
+.full{display:grid;gap:4px;font-size:12px;color:#9ab4d0}
+textarea{background:#071c32;border:1px solid #1b466c;color:#e6f0fc;border-radius:6px;padding:8px;font:inherit;resize:vertical}
+.filters input[readonly]{opacity:.8}
+.error{color:#ff9aa5;font-size:13px;margin:6px 0}
+.ok-text{color:#6ff0c4;font-size:13px}
+.warn-text{color:#ffd36b;font-size:13px;margin:4px 0}
+.entries{display:grid;gap:10px}
+.entry{border:1px solid #143e63;border-radius:8px;padding:12px}
+.entry.due{border-color:#8a6414;background:#2a2008}
+.entry p{margin:6px 0}
+label.inline{display:flex;gap:6px;align-items:center;font-size:12px;color:#9ab4d0}
+label.inline select{background:#071c32;border:1px solid #1b466c;color:#e6f0fc;border-radius:6px;padding:4px 6px}
+.chartfig{margin:6px 0 10px}
+.chartfig svg{width:100%;height:auto;display:block}
+.chartfig .grid{stroke:#173752;stroke-width:1}
+.chartfig .axis{fill:#7f9dbd;font-size:11px}
+.chartfig figcaption{display:flex;gap:16px;font-size:12px;color:#a3bad1}
+.chartfig figcaption i{display:inline-block;width:10px;height:3px;margin-right:6px;vertical-align:middle}
+.inputs{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:5px;font-size:12px}
+.inputs li{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.inputs span:first-child{color:#86a2bf;min-width:80px}
+.table td small{display:block}
