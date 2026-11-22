@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -48,10 +50,29 @@ def _fetch_json(url: str, timeout: float = 5.0) -> dict[str, object]:
         return json.loads(response.read().decode("utf-8"))
 
 
-def yahoo_quote(symbol: str) -> MarketQuote | None:
-    yahoo_symbol = _provider_symbol(symbol)
+_CACHE: dict[str, tuple[float, MarketQuote | None]] = {}
+_CACHE_LOCK = threading.Lock()
+
+
+def yahoo_quote(symbol: str, provider_symbol: str | None = None) -> MarketQuote | None:
+    """Cached quote lookup. Failures are cached too so a slow provider cannot stall every request."""
+    yahoo_symbol = provider_symbol or _provider_symbol(symbol)
     if not yahoo_symbol:
         return None
+    ttl = float(os.getenv("MARKET_DATA_CACHE_SECONDS", "60"))
+    now = time.time()
+    with _CACHE_LOCK:
+        hit = _CACHE.get(yahoo_symbol)
+    if hit and now - hit[0] < ttl:
+        cached = hit[1]
+        return MarketQuote(symbol, cached.price, cached.previous_close, cached.change_pct, cached.currency, cached.timestamp, cached.provider, cached.status) if cached else None
+    result = _yahoo_fetch(symbol, yahoo_symbol)
+    with _CACHE_LOCK:
+        _CACHE[yahoo_symbol] = (now, result)
+    return result
+
+
+def _yahoo_fetch(symbol: str, yahoo_symbol: str) -> MarketQuote | None:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{quote(yahoo_symbol)}?range=5d&interval=1d"
     try:
         payload = _fetch_json(url, timeout=float(os.getenv("MARKET_DATA_TIMEOUT", "5")))
@@ -81,8 +102,13 @@ def quote_for_asset(asset: AssetSnapshot) -> MarketQuote:
     return MarketQuote(asset.symbol, asset.price, round(asset.price / (1 + asset.change_pct / 100), 4), asset.change_pct, asset.currency, None, "Internal deterministic dataset", "DEMO")
 
 
+def quote_dict(q: MarketQuote) -> dict[str, object]:
+    return {"symbol": q.symbol, "price": q.price, "previous_close": q.previous_close, "change_pct": q.change_pct, "currency": q.currency, "timestamp": q.timestamp, "provider": q.provider, "status": q.status}
+
+
 def live_quotes() -> list[dict[str, object]]:
-    return [{"symbol": q.symbol, "price": q.price, "previous_close": q.previous_close, "change_pct": q.change_pct, "currency": q.currency, "timestamp": q.timestamp, "provider": q.provider, "status": q.status} for q in (quote_for_asset(asset) for asset in ASSETS)]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        return [quote_dict(q) for q in pool.map(quote_for_asset, ASSETS)]
 
 
 def market_data_status() -> dict[str, object]:
@@ -90,3 +116,24 @@ def market_data_status() -> dict[str, object]:
     quotes = live_quotes()
     live_count = sum(q["status"] == "LIVE" for q in quotes)
     return {"mode": mode, "provider": "Yahoo Finance chart API", "live_quotes": live_count, "total_symbols": len(quotes), "last_checked_epoch": int(time.time()), "coverage_pct": round(live_count / len(quotes) * 100, 1) if quotes else 0, "note": "GSE symbols use the internal fallback until a supported GSE market-data feed is configured."}
+
+
+# Benchmarks shown on the dashboard. No fallback values are invented: if the
+# provider is unavailable the value is reported as unavailable.
+INDEX_SYMBOLS: tuple[tuple[str, str], ...] = (
+    ("S&P 500", "^GSPC"),
+    ("NASDAQ Composite", "^IXIC"),
+    ("DAX", "^GDAXI"),
+    ("EUR/USD", "EURUSD=X"),
+    ("Gold futures", "GC=F"),
+)
+
+
+def index_quotes() -> list[dict[str, object]]:
+    mode = os.getenv("MARKET_DATA_MODE", "live").strip().lower()
+    out: list[dict[str, object]] = []
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        quotes = list(pool.map(lambda item: yahoo_quote(item[0], item[1]) if mode != "demo" else None, INDEX_SYMBOLS))
+    for (name, provider_symbol), q in zip(INDEX_SYMBOLS, quotes):
+        out.append({"name": name, "symbol": provider_symbol, "value": q.price if q else None, "change_pct": q.change_pct if q else None, "timestamp": q.timestamp if q else None, "provider": q.provider if q else None, "status": "LIVE" if q else "UNAVAILABLE"})
+    return out
