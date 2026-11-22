@@ -2,6 +2,8 @@ import { StrictMode, useEffect, useMemo, useState, type ReactNode } from "react"
 import { createRoot } from "react-dom/client";
 import { BookOpen, BrainCircuit, CircleDollarSign, Database, Home, LineChart, Newspaper, Search, Settings as SettingsIcon, ShieldAlert, Users, WalletCards, X } from "lucide-react";
 import demoSnapshot from "./demo-snapshot.json";
+import { BacktestPage, JournalPage, MyPortfolioPage, PaperTradingPage, PriceHistoryPanel, SaveToJournal } from "./account-pages";
+import { API_BASE, STATIC_HOST, api, band, Header, Kpi, money, num, pct, signedIn, statusCls, type Mode } from "./lib";
 import "./styles.css";
 
 // ---------- Types (mirror the FastAPI payloads) ----------
@@ -10,6 +12,7 @@ type ScanItem = {
   score: number; verdict: string; breakdown: Record<string, number>;
   fundamental_inputs: { revenue_growth_pct: number; operating_margin_pct: number; free_cash_flow_margin_pct: number; source: string; status: string };
   macro_sensitivity: string; price_source: string; price_status: string;
+  market_inputs?: { pe_ratio: number; pe_source: string; momentum_source: string; sentiment_source: string };
 };
 type Scenario = { label: string; growth_pct: number; multiple: number; fair_value: number; upside_pct: number };
 type Analysis = ScanItem & {
@@ -26,36 +29,8 @@ type Risk = { volatility_pct: number | null; sharpe: number | null; max_drawdown
 type NewsItem = { title: string; summary: string; source: string };
 type Status = Record<string, Record<string, unknown>>;
 type Page = "Command Center" | "Opportunity Scanner" | "Investment Committee" | "Portfolio" | "Market Intelligence" | "Investment Journal" | "Backtesting" | "Paper Trading" | "Broker Integration" | "Settings";
-type Mode = { kind: "loading" } | { kind: "api" } | { kind: "demo"; reason: string };
 
 const snapshot = demoSnapshot as unknown as { notice: string; scanner: ScanItem[]; analyses: Record<string, { analysis: Analysis; committee: Committee }>; macro: Macro; portfolio: Portfolio; risk: Risk };
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-// A static host (GitHub Pages) has no API server unless one is configured explicitly.
-const STATIC_HOST = !API_BASE && location.hostname.endsWith("github.io");
-
-async function api<T>(path: string, timeoutMs = 25000): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { signal: AbortSignal.timeout(timeoutMs) });
-  if (!response.ok) throw new Error(`${path} → HTTP ${response.status}`);
-  return response.json() as Promise<T>;
-}
-
-// ---------- Formatting ----------
-function money(v: number | null | undefined, c = "USD") {
-  if (v == null || !Number.isFinite(v)) return "—";
-  try { return new Intl.NumberFormat("en-GB", { style: "currency", currency: c || "USD", maximumFractionDigits: 2 }).format(v); }
-  catch { return v.toFixed(2); }
-}
-const num = (v: number | null | undefined, d = 2) => (v == null || !Number.isFinite(v) ? "—" : v.toLocaleString("en-GB", { maximumFractionDigits: d }));
-const pct = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`);
-// Neutral score bands instead of BUY/SELL wording: this is a research tool, not a recommendation service.
-function band(score: number) {
-  if (score >= 85) return { label: "High score", cls: "b-high" };
-  if (score >= 72) return { label: "Watch", cls: "b-watch" };
-  if (score >= 60) return { label: "Neutral", cls: "b-neutral" };
-  return { label: "Low score", cls: "b-low" };
-}
-const statusCls = (s: string) => (s === "LIVE" ? "st-live" : s === "DEMO" ? "st-demo" : "st-off");
-
 // ---------- App ----------
 function App() {
   const [mode, setMode] = useState<Mode>({ kind: "loading" });
@@ -69,7 +44,7 @@ function App() {
   useEffect(() => {
     const useDemo = (reason: string) => { setScan(snapshot.scanner); setMacro(snapshot.macro); setMarkets(null); setMode({ kind: "demo", reason }); };
     if (STATIC_HOST) { useDemo("This static site has no API server attached."); return; }
-    Promise.all([api<{ items: ScanItem[] }>("/api/scanner?limit=100", 60000), api<{ markets: MarketRow[]; macro: Macro }>("/api/dashboard", 60000)])
+    Promise.all([api<{ items: ScanItem[] }>("/api/scanner?limit=100", { timeoutMs: 60000 }), api<{ markets: MarketRow[]; macro: Macro }>("/api/dashboard", { timeoutMs: 60000 })])
       .then(([s, d]) => { setScan(s.items); setMarkets(d.markets); setMacro(d.macro); setMode({ kind: "api" }); })
       .catch(() => useDemo("The API server could not be reached."));
   }, []);
@@ -113,12 +88,12 @@ function PageBody({ page, mode, scan, markets, macro, onOpen }: { page: Page; mo
     case "Command Center": return <CommandCenter mode={mode} scan={scan} markets={markets} onOpen={onOpen} />;
     case "Opportunity Scanner": return <Scanner scan={scan} onOpen={onOpen} />;
     case "Investment Committee": return <CommitteePage mode={mode} scan={scan} />;
-    case "Portfolio": return <PortfolioPage mode={mode} />;
+    case "Portfolio": return mode.kind === "api" && signedIn() ? <MyPortfolioPage assets={scan} /> : <PortfolioPage mode={mode} />;
     case "Market Intelligence": return <IntelligencePage mode={mode} macro={macro} />;
-    case "Paper Trading": return <PaperPage mode={mode} />;
+    case "Paper Trading": return <PaperTradingPage mode={mode} assets={scan} />;
     case "Settings": return <SettingsPage mode={mode} />;
-    case "Investment Journal": return <NotBuilt title="Investment Journal" text="Saving research snapshots and decisions per account is not built yet. It is planned so every decision keeps its evidence, date and outcome." />;
-    case "Backtesting": return <NotBuilt title="Backtesting" text="The backtest engine exists in the API, but no historical price data is connected yet. Results are not shown until real history is available, so no curve here is invented." />;
+    case "Investment Journal": return <JournalPage mode={mode} assets={scan} />;
+    case "Backtesting": return <BacktestPage mode={mode} assets={scan} />;
     case "Broker Integration": return <NotBuilt title="Broker Integration" text="Live trading is disabled. An optional Alpaca paper-trading (simulated) connection exists in the API and every order requires explicit human approval. Real-money execution would require a licensed broker and legal review." />;
   }
 }
@@ -145,13 +120,6 @@ function CommandCenter({ mode, scan, markets, onOpen }: { mode: Mode; scan: Scan
     </section>
     {top[0] && <section className="card pad"><AssetDetail symbol={top[0].symbol} mode={mode} /></section>}
   </>;
-}
-
-function Kpi({ title, value, sub }: { title: string; value: string; sub: string }) {
-  return <div className="card kpi"><span>{title}</span><strong>{value}</strong><small>{sub}</small></div>;
-}
-function Header({ title, eyebrow }: { title: string; eyebrow?: string }) {
-  return <div className="card-header">{eyebrow && <span className="eyebrow">{eyebrow}</span>}<h3>{title}</h3></div>;
 }
 
 function ScanTable({ rows, onOpen }: { rows: ScanItem[]; onOpen: (s: string) => void }) {
@@ -192,7 +160,12 @@ function AssetDetail({ symbol, mode }: { symbol: string; mode: Mode }) {
         <div className="score"><b>{a.score.toFixed(1)}</b><span>/100</span></div>
         <span className={`badge ${b.cls}`}>{b.label}</span>
         <div className="bars">{Object.entries(a.breakdown).map(([k, v]) => <div key={k}><span>{k.replace("_", " ")}</span><i><em style={{ width: `${v}%` }} /></i><b>{v}</b></div>)}</div>
-        <p className="tiny">Weights: fundamental 24%, growth 18%, cash flow 16%, valuation 14%, balance sheet 12%, momentum 9%, sentiment 7%. Fundamentals source: {a.fundamental_inputs.source} ({a.fundamental_inputs.status}).</p>
+        <p className="tiny">Weights: fundamental 24%, growth 18%, cash flow 16%, valuation 14%, balance sheet 12%, momentum 9%, sentiment 7%.</p>
+        <ul className="inputs">
+          <li><span>Fundamentals</span><b>{a.fundamental_inputs.source}</b> <span className={`badge ${statusCls(a.fundamental_inputs.status)}`}>{a.fundamental_inputs.status}</span></li>
+          {a.market_inputs && <><li><span>P/E {num(a.market_inputs.pe_ratio, 1)}</span><b>{a.market_inputs.pe_source}</b></li>
+          <li><span>Momentum</span><b>{a.market_inputs.momentum_source}</b></li><li><span>Sentiment</span><b>{a.market_inputs.sentiment_source}</b></li></>}
+        </ul>
       </div>
       <div className="box">
         <h4>Bull case</h4><ul className="list good">{a.thesis.bull.map(x => <li key={x}>{x}</li>)}</ul>
@@ -209,7 +182,9 @@ function AssetDetail({ symbol, mode }: { symbol: string; mode: Mode }) {
         <p className="small">On a {money(a.risk.model_account_value, a.currency)} model account risking 1% with an {a.risk.stop_loss_pct}% stop: about {num(a.risk.shares, 2)} shares ({num(a.risk.position_weight_pct, 1)}% of the account).</p>
         <p className="tiny">{a.risk.note}</p>
       </div>
+      <PriceHistoryPanel symbol={a.symbol} mode={mode} />
     </div>
+    <SaveToJournal symbol={a.symbol} mode={mode} />
   </div>;
 }
 
@@ -264,7 +239,7 @@ function PortfolioPage({ mode }: { mode: Mode }) {
   const r = useEndpoint<Risk>("/api/risk", mode, snapshot.risk);
   if (!p.data) return <section className="card pad muted">{p.error ?? "Loading…"}</section>;
   return <section className="card pad">
-    <div className="banner warn inline"><b>Sample portfolio.</b> {p.data.notice}</div>
+    <div className="banner warn inline"><b>Sample portfolio.</b> {p.data.notice} {mode.kind === "api" ? "Sign in to track your own holdings." : ""}</div>
     <div className="kpis"><Kpi title="Value" value={num(p.data.value)} sub="Mixed currencies, unconverted" /><Kpi title="P&L" value={num(p.data.pnl)} sub={pct(p.data.return_pct)} /><Kpi title="Cash" value={`${p.data.cash_pct}%`} sub={num(p.data.cash)} /><Kpi title="Risk flags" value={p.data.risk_flags.length ? p.data.risk_flags.join(", ") : "None"} sub="Concentration > 35%, cash < 5%" /></div>
     <h4>Allocation</h4>
     <div className="bars wide">{p.data.allocation.map(x => <div key={x.symbol}><span>{x.symbol}</span><i><em style={{ width: `${x.weight_pct}%` }} /></i><b>{x.weight_pct}%</b></div>)}</div>
@@ -281,15 +256,6 @@ function IntelligencePage({ mode, macro }: { mode: Mode; macro: Macro | null }) 
     </section>
     {macro && <section className="card pad"><Header title={`Macro regime: ${macro.regime}`} /><MacroList macro={macro} /></section>}
   </>;
-}
-
-function PaperPage({ mode }: { mode: Mode }) {
-  const s = useEndpoint<{ cash: number; equity: number; positions: unknown[]; orders: unknown[] }>("/api/paper-trading", mode);
-  return <section className="card pad">
-    <p className="small">Paper trading is simulated. No real money, no real orders. The simulated account currently resets when the server restarts (persistence is planned).</p>
-    {s.error && <p className="muted">{s.error}</p>}
-    {s.data && <div className="kpis three"><Kpi title="Simulated cash" value={num(s.data.cash)} sub="Starting balance 100,000" /><Kpi title="Simulated equity" value={num(s.data.equity)} sub="" /><Kpi title="Simulated orders" value={`${s.data.orders.length}`} sub={`${s.data.positions.length} open positions`} /></div>}
-  </section>;
 }
 
 function SettingsPage({ mode }: { mode: Mode }) {
@@ -313,6 +279,8 @@ function SourcesPanel({ mode, scan }: { mode: Mode; scan: ScanItem[] }) {
     <ul className="sources">
       <li><span className={`dot ${live ? "st-live" : "st-demo"}`} />Prices: {live ? `${live} live (Yahoo Finance)` : "demo values"}</li>
       <li><span className={`dot ${sec ? "st-live" : "st-demo"}`} />Fundamentals: {sec ? `${sec} from SEC EDGAR` : "demo values"}</li>
+      <li><span className={`dot ${scan.some(a => a.market_inputs?.momentum_source.startsWith("12-1")) ? "st-live" : "st-demo"}`} />Momentum: {scan.some(a => a.market_inputs?.momentum_source.startsWith("12-1")) ? "from live price history" : "seed values"}</li>
+      <li><span className="dot st-demo" />Sentiment: seed values (no live source yet)</li>
       <li><span className="dot st-off" />Ghana (GSE): no live feed yet</li>
       <li><span className="dot st-off" />Live trading: disabled</li>
     </ul>

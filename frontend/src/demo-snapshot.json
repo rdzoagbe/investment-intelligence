@@ -23,6 +23,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 34.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Apple",
     "price": 229.4,
     "price_source": "Internal deterministic dataset",
@@ -68,7 +75,7 @@
     "symbol": "AAPL",
     "thesis": {
      "bear": [
-      "A P/E of 34.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 34.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "China exposure"
      ],
@@ -142,7 +149,7 @@
     },
     "score": 68.9,
     "symbol": "AAPL",
-    "timestamp": "2026-11-22T17:40:05.250105+00:00",
+    "timestamp": "2026-11-22T17:58:10.588626+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 243.16,
@@ -201,6 +208,13 @@
     },
     "macro_sensitivity": "High",
     "market": "GSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 6.5,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Access Bank Ghana",
     "price": 18.2,
     "price_source": "Internal deterministic dataset",
@@ -246,7 +260,7 @@
     "symbol": "ACCESS",
     "thesis": {
      "bear": [
-      "A P/E of 6.5 leaves valuation sensitivity in the thesis.",
+      "A P/E of 6.5 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "FX volatility",
       "Credit losses"
      ],
@@ -320,7 +334,7 @@
     },
     "score": 72.7,
     "symbol": "ACCESS",
-    "timestamp": "2026-11-22T17:40:05.250033+00:00",
+    "timestamp": "2026-11-22T17:58:10.588556+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 21.48,
@@ -379,6 +393,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "Euronext Paris",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 26.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Airbus",
     "price": 154.2,
     "price_source": "Internal deterministic dataset",
@@ -424,7 +445,7 @@
     "symbol": "AIR.PA",
     "thesis": {
      "bear": [
-      "A P/E of 26.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 26.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Supply chain",
       "Production execution"
      ],
@@ -498,7 +519,7 @@
     },
     "score": 61.6,
     "symbol": "AIR.PA",
-    "timestamp": "2026-11-22T17:40:05.250559+00:00",
+    "timestamp": "2026-11-22T17:58:10.589334+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 166.54,
@@ -557,6 +578,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 39.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Amazon",
     "price": 228.1,
     "price_source": "Internal deterministic dataset",
@@ -602,7 +630,7 @@
     "symbol": "AMZN",
     "thesis": {
      "bear": [
-      "A P/E of 39.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 39.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "Cloud competition"
      ],
@@ -676,7 +704,7 @@
     },
     "score": 64.5,
     "symbol": "AMZN",
-    "timestamp": "2026-11-22T17:40:05.250069+00:00",
+    "timestamp": "2026-11-22T17:58:10.588591+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 253.19,
@@ -735,6 +763,13 @@
     },
     "macro_sensitivity": "High",
     "market": "Euronext Amsterdam",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 31.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "ASML Holding",
     "price": 672.4,
     "price_source": "Internal deterministic dataset",
@@ -780,7 +815,7 @@
     "symbol": "ASML",
     "thesis": {
      "bear": [
-      "A P/E of 31.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 31.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "China restrictions",
       "Semiconductor cycle"
      ],
@@ -854,7 +889,7 @@
     },
     "score": 75.2,
     "symbol": "ASML",
-    "timestamp": "2026-11-22T17:40:05.249953+00:00",
+    "timestamp": "2026-11-22T17:58:10.588474+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 753.09,
@@ -913,6 +948,13 @@
     },
     "macro_sensitivity": "High",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 32.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Broadcom",
     "price": 171.3,
     "price_source": "Internal deterministic dataset",
@@ -958,7 +1000,7 @@
     "symbol": "AVGO",
     "thesis": {
      "bear": [
-      "A P/E of 32.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 32.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Leverage",
       "Customer concentration"
      ],
@@ -1032,7 +1074,7 @@
     },
     "score": 75.5,
     "symbol": "AVGO",
-    "timestamp": "2026-11-22T17:40:05.250224+00:00",
+    "timestamp": "2026-11-22T17:58:10.588970+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 200.42,
@@ -1091,6 +1133,13 @@
     },
     "macro_sensitivity": "Low",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 22.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Berkshire Hathaway",
     "price": 455.2,
     "price_source": "Internal deterministic dataset",
@@ -1136,7 +1185,7 @@
     "symbol": "BRK-B",
     "thesis": {
      "bear": [
-      "A P/E of 22.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 22.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Insurance losses",
       "Succession"
      ],
@@ -1210,7 +1259,7 @@
     },
     "score": 65.9,
     "symbol": "BRK-B",
-    "timestamp": "2026-11-22T17:40:05.250369+00:00",
+    "timestamp": "2026-11-22T17:58:10.589129+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 477.96,
@@ -1269,6 +1318,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 34.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Salesforce",
     "price": 302.6,
     "price_source": "Internal deterministic dataset",
@@ -1314,7 +1370,7 @@
     "symbol": "CRM",
     "thesis": {
      "bear": [
-      "A P/E of 34.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 34.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Competition",
       "Growth deceleration"
      ],
@@ -1388,7 +1444,7 @@
     },
     "score": 69.5,
     "symbol": "CRM",
-    "timestamp": "2026-11-22T17:40:05.250314+00:00",
+    "timestamp": "2026-11-22T17:58:10.589072+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 332.86,
@@ -1447,6 +1503,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 25.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Alphabet",
     "price": 175.6,
     "price_source": "Internal deterministic dataset",
@@ -1492,7 +1555,7 @@
     "symbol": "GOOGL",
     "thesis": {
      "bear": [
-      "A P/E of 25.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 25.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Regulation",
       "AI disruption"
      ],
@@ -1566,7 +1629,7 @@
     },
     "score": 75.5,
     "symbol": "GOOGL",
-    "timestamp": "2026-11-22T17:40:05.250131+00:00",
+    "timestamp": "2026-11-22T17:58:10.588820+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 198.43,
@@ -1625,6 +1688,13 @@
     },
     "macro_sensitivity": "Low",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 15.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Johnson & Johnson",
     "price": 162.4,
     "price_source": "Internal deterministic dataset",
@@ -1670,7 +1740,7 @@
     "symbol": "JNJ",
     "thesis": {
      "bear": [
-      "A P/E of 15.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 15.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Litigation",
       "Patent expiry"
      ],
@@ -1744,7 +1814,7 @@
     },
     "score": 64.7,
     "symbol": "JNJ",
-    "timestamp": "2026-11-22T17:40:05.250426+00:00",
+    "timestamp": "2026-11-22T17:58:10.589189+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 167.27,
@@ -1803,6 +1873,13 @@
     },
     "macro_sensitivity": "High",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 13.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "JPMorgan Chase",
     "price": 224.7,
     "price_source": "Internal deterministic dataset",
@@ -1848,7 +1925,7 @@
     "symbol": "JPM",
     "thesis": {
      "bear": [
-      "A P/E of 13.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 13.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Credit losses",
       "Rates"
      ],
@@ -1922,7 +1999,7 @@
     },
     "score": 71.6,
     "symbol": "JPM",
-    "timestamp": "2026-11-22T17:40:05.250342+00:00",
+    "timestamp": "2026-11-22T17:58:10.589099+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 240.43,
@@ -1981,6 +2058,13 @@
     },
     "macro_sensitivity": "Low",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 26.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Coca-Cola",
     "price": 71.2,
     "price_source": "Internal deterministic dataset",
@@ -2026,7 +2110,7 @@
     "symbol": "KO",
     "thesis": {
      "bear": [
-      "A P/E of 26.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 26.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Input costs",
       "FX"
      ],
@@ -2100,7 +2184,7 @@
     },
     "score": 61.2,
     "symbol": "KO",
-    "timestamp": "2026-11-22T17:40:05.250612+00:00",
+    "timestamp": "2026-11-22T17:58:10.589391+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 74.76,
@@ -2159,6 +2243,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 42.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Eli Lilly",
     "price": 835.0,
     "price_source": "Internal deterministic dataset",
@@ -2204,7 +2295,7 @@
     "symbol": "LLY",
     "thesis": {
      "bear": [
-      "A P/E of 42.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 42.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "Competition"
      ],
@@ -2278,7 +2369,7 @@
     },
     "score": 77.5,
     "symbol": "LLY",
-    "timestamp": "2026-11-22T17:40:05.250397+00:00",
+    "timestamp": "2026-11-22T17:58:10.589162+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 1035.4,
@@ -2337,6 +2428,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "Euronext Paris",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 23.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "LVMH",
     "price": 648.5,
     "price_source": "Internal deterministic dataset",
@@ -2382,7 +2480,7 @@
     "symbol": "MC.PA",
     "thesis": {
      "bear": [
-      "A P/E of 23.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 23.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "China slowdown",
       "FX"
      ],
@@ -2456,7 +2554,7 @@
     },
     "score": 63.2,
     "symbol": "MC.PA",
-    "timestamp": "2026-11-22T17:40:05.250504+00:00",
+    "timestamp": "2026-11-22T17:58:10.589278+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 687.41,
@@ -2515,6 +2613,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 24.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Meta Platforms",
     "price": 548.2,
     "price_source": "Internal deterministic dataset",
@@ -2560,7 +2665,7 @@
     "symbol": "META",
     "thesis": {
      "bear": [
-      "A P/E of 24.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 24.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Regulation",
       "Capex"
      ],
@@ -2634,7 +2739,7 @@
     },
     "score": 82.5,
     "symbol": "META",
-    "timestamp": "2026-11-22T17:40:05.250160+00:00",
+    "timestamp": "2026-11-22T17:58:10.588868+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 646.88,
@@ -2693,6 +2798,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 35.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Microsoft",
     "price": 415.2,
     "price_source": "Internal deterministic dataset",
@@ -2738,7 +2850,7 @@
     "symbol": "MSFT",
     "thesis": {
      "bear": [
-      "A P/E of 35.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 35.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "Regulation"
      ],
@@ -2812,7 +2924,7 @@
     },
     "score": 78.9,
     "symbol": "MSFT",
-    "timestamp": "2026-11-22T17:40:05.249844+00:00",
+    "timestamp": "2026-11-22T17:58:10.588405+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 473.33,
@@ -2871,6 +2983,13 @@
     },
     "macro_sensitivity": "Low",
     "market": "SIX Swiss Exchange",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 20.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Nestl\u00e9",
     "price": 82.1,
     "price_source": "Internal deterministic dataset",
@@ -2916,7 +3035,7 @@
     "symbol": "NESN.SW",
     "thesis": {
      "bear": [
-      "A P/E of 20.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 20.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Input costs",
       "Consumer weakness"
      ],
@@ -2990,7 +3109,7 @@
     },
     "score": 55.7,
     "symbol": "NESN.SW",
-    "timestamp": "2026-11-22T17:40:05.250453+00:00",
+    "timestamp": "2026-11-22T17:58:10.589221+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 85.38,
@@ -3049,6 +3168,13 @@
     },
     "macro_sensitivity": "High",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 45.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "NVIDIA",
     "price": 119.8,
     "price_source": "Internal deterministic dataset",
@@ -3094,7 +3220,7 @@
     "symbol": "NVDA",
     "thesis": {
      "bear": [
-      "A P/E of 45.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 45.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "Competition"
      ],
@@ -3168,7 +3294,7 @@
     },
     "score": 88.6,
     "symbol": "NVDA",
-    "timestamp": "2026-11-22T17:40:05.250200+00:00",
+    "timestamp": "2026-11-22T17:58:10.588901+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 153.34,
@@ -3227,6 +3353,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 35.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Oracle",
     "price": 178.4,
     "price_source": "Internal deterministic dataset",
@@ -3272,7 +3405,7 @@
     "symbol": "ORCL",
     "thesis": {
      "bear": [
-      "A P/E of 35.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 35.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Leverage",
       "Cloud competition"
      ],
@@ -3346,7 +3479,7 @@
     },
     "score": 57.8,
     "symbol": "ORCL",
-    "timestamp": "2026-11-22T17:40:05.250289+00:00",
+    "timestamp": "2026-11-22T17:58:10.589042+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 194.46,
@@ -3405,6 +3538,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "Xetra",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 41.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "SAP",
     "price": 247.3,
     "price_source": "Internal deterministic dataset",
@@ -3450,7 +3590,7 @@
     "symbol": "SAP",
     "thesis": {
      "bear": [
-      "A P/E of 41.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 41.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "Cloud transition"
      ],
@@ -3524,7 +3664,7 @@
     },
     "score": 70.4,
     "symbol": "SAP",
-    "timestamp": "2026-11-22T17:40:05.250479+00:00",
+    "timestamp": "2026-11-22T17:58:10.589251+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 272.03,
@@ -3583,6 +3723,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 17.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Sony Group",
     "price": 91.3,
     "price_source": "Internal deterministic dataset",
@@ -3628,7 +3775,7 @@
     "symbol": "SONY",
     "thesis": {
      "bear": [
-      "A P/E of 17.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 17.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Console cycle",
       "FX"
      ],
@@ -3702,7 +3849,7 @@
     },
     "score": 63.8,
     "symbol": "SONY",
-    "timestamp": "2026-11-22T17:40:05.250587+00:00",
+    "timestamp": "2026-11-22T17:58:10.589366+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 97.69,
@@ -3761,6 +3908,13 @@
     },
     "macro_sensitivity": "Moderate",
     "market": "Euronext Paris",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 29.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Schneider Electric",
     "price": 245.8,
     "price_source": "Internal deterministic dataset",
@@ -3806,7 +3960,7 @@
     "symbol": "SU.PA",
     "thesis": {
      "bear": [
-      "A P/E of 29.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 29.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "Industrial cycle"
      ],
@@ -3880,7 +4034,7 @@
     },
     "score": 63.5,
     "symbol": "SU.PA",
-    "timestamp": "2026-11-22T17:40:05.250532+00:00",
+    "timestamp": "2026-11-22T17:58:10.589306+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 272.84,
@@ -3939,6 +4093,13 @@
     },
     "macro_sensitivity": "High",
     "market": "NASDAQ",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 70.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Tesla",
     "price": 242.6,
     "price_source": "Internal deterministic dataset",
@@ -3984,7 +4145,7 @@
     "symbol": "TSLA",
     "thesis": {
      "bear": [
-      "A P/E of 70.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 70.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Valuation",
       "Competition"
      ],
@@ -4058,7 +4219,7 @@
     },
     "score": 58.3,
     "symbol": "TSLA",
-    "timestamp": "2026-11-22T17:40:05.250639+00:00",
+    "timestamp": "2026-11-22T17:58:10.589419+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 264.43,
@@ -4117,6 +4278,13 @@
     },
     "macro_sensitivity": "High",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 27.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Taiwan Semiconductor",
     "price": 194.1,
     "price_source": "Internal deterministic dataset",
@@ -4162,7 +4330,7 @@
     "symbol": "TSM",
     "thesis": {
      "bear": [
-      "A P/E of 27.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 27.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Geopolitics",
       "Capex cycle"
      ],
@@ -4236,7 +4404,7 @@
     },
     "score": 84.6,
     "symbol": "TSM",
-    "timestamp": "2026-11-22T17:40:05.250253+00:00",
+    "timestamp": "2026-11-22T17:58:10.589003+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 232.92,
@@ -4295,6 +4463,13 @@
     },
     "macro_sensitivity": "Low",
     "market": "NYSE",
+    "market_inputs": {
+     "history": null,
+     "momentum_source": "Seed value (not live)",
+     "pe_ratio": 31.0,
+     "pe_source": "Seed value (not live)",
+     "sentiment_source": "Seed value (not live)"
+    },
     "name": "Visa",
     "price": 277.3,
     "price_source": "Internal deterministic dataset",
@@ -4340,7 +4515,7 @@
     "symbol": "VISA",
     "thesis": {
      "bear": [
-      "A P/E of 31.0 leaves valuation sensitivity in the thesis.",
+      "A P/E of 31.0 (seed value (not live)) leaves valuation sensitivity in the thesis.",
       "Regulation",
       "Consumer slowdown"
      ],
@@ -4414,7 +4589,7 @@
     },
     "score": 84.7,
     "symbol": "VISA",
-    "timestamp": "2026-11-22T17:40:05.249997+00:00",
+    "timestamp": "2026-11-22T17:58:10.588521+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 305.03,
@@ -4546,6 +4721,13 @@
    },
    "macro_sensitivity": "High",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 45.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "NVIDIA",
    "price": 119.8,
    "price_source": "Internal deterministic dataset",
@@ -4575,6 +4757,13 @@
    },
    "macro_sensitivity": "Low",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 31.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Visa",
    "price": 277.3,
    "price_source": "Internal deterministic dataset",
@@ -4604,6 +4793,13 @@
    },
    "macro_sensitivity": "High",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 27.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Taiwan Semiconductor",
    "price": 194.1,
    "price_source": "Internal deterministic dataset",
@@ -4633,6 +4829,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 24.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Meta Platforms",
    "price": 548.2,
    "price_source": "Internal deterministic dataset",
@@ -4662,6 +4865,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 35.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Microsoft",
    "price": 415.2,
    "price_source": "Internal deterministic dataset",
@@ -4691,6 +4901,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 42.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Eli Lilly",
    "price": 835.0,
    "price_source": "Internal deterministic dataset",
@@ -4720,6 +4937,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 25.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Alphabet",
    "price": 175.6,
    "price_source": "Internal deterministic dataset",
@@ -4749,6 +4973,13 @@
    },
    "macro_sensitivity": "High",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 32.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Broadcom",
    "price": 171.3,
    "price_source": "Internal deterministic dataset",
@@ -4778,6 +5009,13 @@
    },
    "macro_sensitivity": "High",
    "market": "Euronext Amsterdam",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 31.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "ASML Holding",
    "price": 672.4,
    "price_source": "Internal deterministic dataset",
@@ -4807,6 +5045,13 @@
    },
    "macro_sensitivity": "High",
    "market": "GSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 6.5,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Access Bank Ghana",
    "price": 18.2,
    "price_source": "Internal deterministic dataset",
@@ -4836,6 +5081,13 @@
    },
    "macro_sensitivity": "High",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 13.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "JPMorgan Chase",
    "price": 224.7,
    "price_source": "Internal deterministic dataset",
@@ -4865,6 +5117,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "Xetra",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 41.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "SAP",
    "price": 247.3,
    "price_source": "Internal deterministic dataset",
@@ -4894,6 +5153,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 34.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Salesforce",
    "price": 302.6,
    "price_source": "Internal deterministic dataset",
@@ -4923,6 +5189,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 34.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Apple",
    "price": 229.4,
    "price_source": "Internal deterministic dataset",
@@ -4952,6 +5225,13 @@
    },
    "macro_sensitivity": "Low",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 22.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Berkshire Hathaway",
    "price": 455.2,
    "price_source": "Internal deterministic dataset",
@@ -4981,6 +5261,13 @@
    },
    "macro_sensitivity": "Low",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 15.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Johnson & Johnson",
    "price": 162.4,
    "price_source": "Internal deterministic dataset",
@@ -5010,6 +5297,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 39.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Amazon",
    "price": 228.1,
    "price_source": "Internal deterministic dataset",
@@ -5039,6 +5333,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 17.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Sony Group",
    "price": 91.3,
    "price_source": "Internal deterministic dataset",
@@ -5068,6 +5369,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "Euronext Paris",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 29.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Schneider Electric",
    "price": 245.8,
    "price_source": "Internal deterministic dataset",
@@ -5097,6 +5405,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "Euronext Paris",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 23.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "LVMH",
    "price": 648.5,
    "price_source": "Internal deterministic dataset",
@@ -5126,6 +5441,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "Euronext Paris",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 26.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Airbus",
    "price": 154.2,
    "price_source": "Internal deterministic dataset",
@@ -5155,6 +5477,13 @@
    },
    "macro_sensitivity": "Low",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 26.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Coca-Cola",
    "price": 71.2,
    "price_source": "Internal deterministic dataset",
@@ -5184,6 +5513,13 @@
    },
    "macro_sensitivity": "High",
    "market": "NASDAQ",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 70.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Tesla",
    "price": 242.6,
    "price_source": "Internal deterministic dataset",
@@ -5213,6 +5549,13 @@
    },
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 35.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Oracle",
    "price": 178.4,
    "price_source": "Internal deterministic dataset",
@@ -5242,6 +5585,13 @@
    },
    "macro_sensitivity": "Low",
    "market": "SIX Swiss Exchange",
+   "market_inputs": {
+    "history": null,
+    "momentum_source": "Seed value (not live)",
+    "pe_ratio": 20.0,
+    "pe_source": "Seed value (not live)",
+    "sentiment_source": "Seed value (not live)"
+   },
    "name": "Nestl\u00e9",
    "price": 82.1,
    "price_source": "Internal deterministic dataset",

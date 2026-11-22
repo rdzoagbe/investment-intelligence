@@ -6,21 +6,23 @@ Status reviewed in November 2026. "Scaffolded" means the code path exists and is
 
 | # | Milestone | Status | Notes |
 |---|---|---|---|
-| 1 | Real market data | PARTIAL | Yahoo Finance quote adapter (unofficial; personal research use only) with labelled demo fallback and caching. No historical prices. GSE has no feed. |
-| 2 | Opportunity scanner | SCAFFOLDED | 25-asset seed universe. P/E, momentum and sentiment are static seed values, not live. |
-| 3 | Fundamental engine | PARTIAL | SEC Company Facts adapter for 16 US issuers; enabled only when `SEC_USER_AGENT` declares a real contact. Others use seed values. |
+| 1 | Real market data | PARTIAL | Quotes and daily adjusted-close history (1y–10y) from the Yahoo Finance chart API (unofficial; personal research use only), cached, with labelled demo fallback. No history is ever synthesised. GSE has no feed. |
+| 2 | Opportunity scanner | PARTIAL | 25-asset universe. Momentum comes from live history (12-1 month momentum + 200-day trend) when available; P/E is live price / SEC diluted EPS for US issuers when both are live; sentiment is still a seed value. Each input reports its source. |
+| 3 | Fundamental engine | PARTIAL | SEC Company Facts adapter for 16 US issuers, enabled only when `SEC_USER_AGENT` declares a real contact. Fixed: values are keyed by reporting period (10-K comparatives no longer mixed up), EPS is read from per-share units, and the freshest revenue tag wins. Non-US issuers use seed values. |
 | 4 | Bull-vs-bear analysis | PARTIAL | Rule-based by default; optional model synthesis when an API key is configured. |
 | 5 | Investment Committee | SCAFFOLDED | Decision packet with human-approval state. "Confidence" is a heuristic distance from neutral, not a probability. |
-| 6 | Portfolio analytics | SCAFFOLDED | Maths is implemented and tested; the UI shows a labelled sample portfolio until per-user holdings are stored. |
+| 6 | Portfolio analytics | PARTIAL | Signed-in users store their own holdings, valued at current quotes with per-holding volatility/return from live history. Totals are per currency (no FX conversion yet). |
 | 7 | News + macro | PARTIAL | RSS headlines are live when feeds respond; macro regime is a static rule-based label. |
-| 8 | Backtesting | SCAFFOLDED | Engine works on supplied series; no historical data source connected, so nothing is shown in the UI. |
-| 9 | Paper trading | SCAFFOLDED | In-memory simulated account (resets on restart); optional Alpaca paper adapter. |
+| 8 | Backtesting | PARTIAL | Price-only trend rule vs buy-and-hold on real history, with costs, CAGR and drawdown; tested for no look-ahead. The composite score is deliberately not backtested (its fundamentals are not point-in-time). |
+| 9 | Paper trading | PARTIAL | Per-user simulated account persisted in the database; fills always use the server's quote and record LIVE/DEMO. Single cash balance, no FX. |
+| 11 | Investment journal | PARTIAL | Per-user decisions with thesis, review date, outcome and an evidence snapshot (price, score, sources) captured at decision time. |
 | 10 | Broker integration | DISABLED BY DESIGN | Live execution is blocked. Paper-only, human approval on every order. Real-money execution would require a licensed broker partner and legal review. |
 
 ## Next steps
 
 1. **Step 1 – honest data (done in this iteration):** removed fabricated UI content, wired the UI to the API, labelled every demo figure, fixed the GitHub Pages build and the login token bug.
-2. **Step 2 – real data:** historical prices, persisted portfolios/journal/paper trades per user, live valuation inputs, licensed data provider before any commercial use.
+2. **Step 2 – real data (done in this iteration):** historical prices, live momentum and P/E inputs, SEC parsing fixes, persisted per-user holdings, journal and paper trades, real-history backtests.
+   Still open: FX conversion, a licensed market-data provider before any commercial use (the Yahoo endpoint is unofficial), a sentiment source, GSE data, point-in-time fundamentals.
 3. **Step 3 – AI research assistant:** grounded Q&A over platform data with citations, scheduled scans and alerts, measured paper-trading track record.
 4. **Before any public launch:** legal opinion on the operating model (research tool vs. advice), terms, risk disclosures, privacy policy.
 
