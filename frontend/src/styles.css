@@ -179,3 +179,16 @@ label.inline select{background:#071c32;border:1px solid #1b466c;color:#e6f0fc;bo
 .inputs li{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .inputs span:first-child{color:#86a2bf;min-width:80px}
 .table td small{display:block}
+
+/* Step 3: assistant, alerts, track record */
+.nav-item .count{margin-left:auto;font-style:normal;background:#e5484d;color:#fff;border-radius:10px;padding:0 7px;font-size:11px;line-height:18px}
+.reply{margin-bottom:14px;background:linear-gradient(145deg,#071e35,#05182a)}
+.reply .q{font-weight:600;margin:0 0 8px}
+.cite{display:inline-block;background:#0b3460;color:#8cc8ff;border-radius:4px;padding:0 5px;margin:0 1px;font-size:11px;text-decoration:none;vertical-align:1px}
+.cite:hover{background:#1d5f9c;color:#fff}
+details summary{cursor:pointer;color:#9fc3e6;font-size:13px;margin:6px 0}
+.evidence{margin:6px 0 0;padding-left:20px;display:grid;gap:8px}
+.evidence li:target{background:#0b2a45;border-radius:6px}
+.events{list-style:none;padding:0;margin:0;display:grid;gap:6px;font-size:13px}
+.events li{padding:8px 10px;border:1px solid #143e63;border-radius:7px}
+.events li.unread{border-color:#1d5f9c;background:#0a2745}

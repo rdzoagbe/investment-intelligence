@@ -26,6 +26,8 @@ The product is designed as an investment research desk rather than a blind tradi
 - **Investment journal:** record a decision with your thesis and a review date; the price, score and data sources at that moment are saved with it.
 - **Paper trading:** a simulated 100,000 account per user, stored in the database. Fills use the server's quote, never a price sent by the browser.
 - **Backtesting:** a price-only trend rule versus buy-and-hold on real history. No history means no backtest; nothing is invented.
+- **AI assistant:** asks are answered only from evidence the platform gathers, with citations you can click and check. Set `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`) to enable generated answers; without a key it shows the evidence only.
+- **Alerts and track record:** price/score/move alerts and journal review reminders; a daily job stores score snapshots so the platform can measure whether higher scores were followed by better returns.
 
 ## Current stage — V1 + live market-data adapter
 
