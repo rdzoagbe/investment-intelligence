@@ -7,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .auth import authenticate, create_user, issue_token, user_from_token
-from . import userdata
+import hmac
+
+from . import assistant, llm, monitoring, userdata
 from .backtest import BacktestConfig, run_backtest, trend_backtest
 from .history import price_history, statistics
 from .broker import gateway
@@ -42,6 +44,10 @@ class JournalIn(BaseModel):
     symbol: str = Field(min_length=1, max_length=20); decision: str; thesis: str = Field(min_length=10, max_length=4000); review_on: str | None = None
 class OutcomeIn(BaseModel):
     outcome: str
+class QuestionIn(BaseModel):
+    question: str = Field(min_length=3, max_length=1000)
+class AlertRuleIn(BaseModel):
+    symbol: str = Field(min_length=1, max_length=20); kind: str; threshold: float = Field(gt=0, le=1e9)
 class BrokerPreview(BaseModel):
     symbol: str; side: str; quantity: float = Field(gt=0); order_type: str = "MARKET"
 class BrokerApproval(BrokerPreview):
@@ -190,12 +196,55 @@ def my_paper_order(body: PaperOrder, user: dict[str, object] = Depends(current_u
     return _user_call(userdata.paper_order, int(user["id"]), body.symbol, body.side, body.quantity)
 
 
+# ---------- Research assistant, alerts and track record ----------
+@app.post("/api/assistant/ask")
+def assistant_ask(body: QuestionIn, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    try: return assistant.ask(body.question, int(user["id"]))
+    except assistant.AssistantError as exc: raise HTTPException(400, str(exc)) from exc
+@app.get("/api/me/assistant/history")
+def assistant_history(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return {"items": assistant.history(int(user["id"]))}
+@app.get("/api/me/alerts")
+def my_alerts(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    uid = int(user["id"])
+    monitoring.evaluate_user(uid)
+    return {"rules": monitoring.list_rules(uid), "events": monitoring.events(uid), "kinds": monitoring.ALERT_KINDS}
+@app.post("/api/me/alerts/rules")
+def my_alert_add(body: AlertRuleIn, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    try: return monitoring.add_rule(int(user["id"]), body.symbol, body.kind, body.threshold)
+    except monitoring.MonitoringError as exc: raise HTTPException(400, str(exc)) from exc
+@app.delete("/api/me/alerts/rules/{rule_id}")
+def my_alert_delete(rule_id: int, user: dict[str, object] = Depends(current_user)) -> dict[str, str]:
+    monitoring.delete_rule(int(user["id"]), rule_id)
+    return {"status": "deleted"}
+@app.post("/api/me/alerts/read")
+def my_alerts_read(user: dict[str, object] = Depends(current_user)) -> dict[str, str]:
+    monitoring.mark_read(int(user["id"]))
+    return {"status": "ok"}
+@app.get("/api/me/track-record")
+def my_track_record(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return monitoring.user_track_record(int(user["id"]))
+@app.get("/api/track-record/signals")
+def signal_track_record() -> dict[str, object]:
+    return monitoring.signal_track_record()
+@app.post("/api/jobs/daily-scan")
+def daily_scan(x_job_token: str | None = Header(default=None)) -> dict[str, object]:
+    expected = os.getenv("JOB_TOKEN", "")
+    if len(expected) < 24:
+        raise HTTPException(503, "Daily job is disabled: set JOB_TOKEN (at least 24 characters) on the server.")
+    if not x_job_token or not hmac.compare_digest(x_job_token, expected):
+        raise HTTPException(401, "Invalid job token.")
+    return monitoring.run_daily_job()
+
+
 @app.get("/api/status")
 def status() -> dict[str, object]:
     return {
         "market_data": {"mode": os.getenv("MARKET_DATA_MODE", "live"), "provider": "Yahoo Finance chart API (unofficial; personal research use)"},
         "fundamentals": {"mode": os.getenv("FUNDAMENTALS_MODE", "live"), "sec_enabled": sec_user_agent() is not None, "note": "Set SEC_USER_AGENT to 'Name email@domain' to enable SEC EDGAR fundamentals."},
         "ai_synthesis": {"enabled": bool(os.getenv("OPENAI_API_KEY"))},
+        "assistant": {"provider": llm.provider(), "daily_limit": int(os.getenv("ASSISTANT_DAILY_LIMIT", "20")), "note": "Set ANTHROPIC_API_KEY (or OPENAI_API_KEY) to enable generated answers; without one the assistant lists evidence only."},
+        "daily_job": {"enabled": len(os.getenv("JOB_TOKEN", "")) >= 24},
         "paper_broker": {"enabled": gateway.paper_enabled},
         "live_trading": {"enabled": False, "note": "Live execution is blocked in this build."},
         "portfolio": {"source": "Per-user holdings (signed in); /api/portfolio remains a labelled sample"},

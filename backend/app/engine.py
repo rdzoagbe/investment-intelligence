@@ -16,6 +16,11 @@ from .valuation import scenario_values
 MODEL_ACCOUNT_VALUE = 10_000.0
 
 
+def band_label(score: float) -> str:
+    """Neutral display bands (mirrors the UI); not buy/sell instructions."""
+    return "High score" if score >= 85 else "Watch" if score >= 72 else "Neutral" if score >= 60 else "Low score"
+
+
 def clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     return max(low, min(high, value))
 
