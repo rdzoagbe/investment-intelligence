@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import time
-from fastapi import FastAPI, HTTPException, Query, Header
+from fastapi import Depends, FastAPI, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .auth import authenticate, create_user, issue_token, user_from_token
-from .backtest import BacktestConfig, run_backtest
+from . import userdata
+from .backtest import BacktestConfig, run_backtest, trend_backtest
+from .history import price_history, statistics
 from .broker import gateway
 from .committee import build_committee
 from .data import ASSETS, get_asset
@@ -15,12 +17,11 @@ from .engine import analyze_asset, scanner
 from .fundamentals import fundamentals_for_symbol, sec_user_agent
 from .intelligence import bull_bear, macro_snapshot, market_intelligence
 from .market_data import index_quotes, live_quotes, market_data_status
-from .paper_trading import paper_account
 from .portfolio import Holding, portfolio_snapshot, risk_metrics
 
 app = FastAPI(title="Investment Intelligence API", version="1.2.0")
 cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
-app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True, allow_methods=["GET", "POST"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["*"])
 
 class RegisterRequest(BaseModel):
     name: str = Field(min_length=2, max_length=80)
@@ -34,7 +35,13 @@ class BacktestRequest(BaseModel):
     initial_cash: float = Field(default=10000, gt=0); position_pct: float = Field(default=0.20, gt=0, le=1)
     buy_threshold: float = Field(default=85, ge=0, le=100); sell_threshold: float = Field(default=60, ge=0, le=100); transaction_cost_bps: float = Field(default=10, ge=0, le=1000)
 class PaperOrder(BaseModel):
-    symbol: str; side: str; quantity: float = Field(gt=0); price: float = Field(gt=0)
+    symbol: str = Field(min_length=1, max_length=20); side: str; quantity: float = Field(gt=0, le=1_000_000)
+class HoldingIn(BaseModel):
+    symbol: str = Field(min_length=1, max_length=20); quantity: float = Field(gt=0, le=1e9); average_cost: float = Field(gt=0, le=1e9)
+class JournalIn(BaseModel):
+    symbol: str = Field(min_length=1, max_length=20); decision: str; thesis: str = Field(min_length=10, max_length=4000); review_on: str | None = None
+class OutcomeIn(BaseModel):
+    outcome: str
 class BrokerPreview(BaseModel):
     symbol: str; side: str; quantity: float = Field(gt=0); order_type: str = "MARKET"
 class BrokerApproval(BrokerPreview):
@@ -56,12 +63,16 @@ def login(request: LoginRequest) -> dict[str, object]:
     if not user: raise HTTPException(401, "Invalid email or password.")
     return {"access_token": issue_token(int(user["id"])), "token_type": "bearer", "user": user}
 
-@app.get("/api/auth/me")
-def me(authorization: str | None = Header(default=None)) -> dict[str, object]:
+def current_user(authorization: str | None = Header(default=None)) -> dict[str, object]:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "Authentication required.")
     user = user_from_token(authorization.split(" ", 1)[1].strip())
     if not user: raise HTTPException(401, "Session expired or invalid.")
+    return user
+
+
+@app.get("/api/auth/me")
+def me(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
     return user
 
 @app.get("/api/assets")
@@ -117,21 +128,67 @@ def risk() -> dict[str, object]:
 @app.post("/api/backtest")
 def backtest(request: BacktestRequest) -> dict[str, object]:
     return run_backtest(request.prices, request.scores, BacktestConfig(request.initial_cash, request.position_pct, request.buy_threshold, request.sell_threshold, request.transaction_cost_bps))
-@app.get("/api/paper-trading")
-def paper_snapshot() -> dict[str, object]:
-    prices = {str(q["symbol"]): float(q["price"]) for q in live_quotes() if isinstance(q.get("price"), (int, float))}
-    return {"mode": "PAPER", "live_trading_enabled": False, **paper_account.snapshot(prices)}
-@app.post("/api/paper-trading/orders")
-def paper_order(request: PaperOrder) -> dict[str, object]:
-    if not get_asset(request.symbol): raise HTTPException(404, "Unknown symbol")
-    try: return paper_account.submit(request.symbol, request.side, request.quantity, request.price)
-    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
 @app.post("/api/broker/preview")
 def broker_preview(request: BrokerPreview) -> dict[str, object]: return gateway.preview(request.symbol, request.side, request.quantity, request.order_type).__dict__
 @app.post("/api/broker/execute")
 def broker_execute(request: BrokerApproval) -> dict[str, object]:
     order = gateway.preview(request.symbol, request.side, request.quantity, request.order_type)
     return gateway.execute(order, request.human_approved).__dict__
+
+# ---------- Price history and backtests (real data only) ----------
+def _history_or_error(symbol: str, range_: str):
+    if get_asset(symbol) is None: raise HTTPException(404, f"Asset {symbol.upper()} not found")
+    try: history = price_history(symbol.upper(), range_)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+    if history is None: raise HTTPException(503, "Price history is unavailable (provider unreachable, unsupported market, or demo mode). No history is substituted.")
+    return history
+
+
+@app.get("/api/assets/{symbol}/history")
+def asset_history(symbol: str, range: str = Query("1y")) -> dict[str, object]:  # noqa: A002 - public query name
+    history = _history_or_error(symbol, range)
+    return {**history.as_dict(), "statistics": statistics(history)}
+
+
+@app.get("/api/assets/{symbol}/backtest")
+def asset_backtest(symbol: str, range: str = Query("5y"), window: int = Query(200, ge=20, le=300), cost_bps: float = Query(10, ge=0, le=200)) -> dict[str, object]:  # noqa: A002
+    history = _history_or_error(symbol, range)
+    try: return trend_backtest(history, window, cost_bps)
+    except ValueError as exc: raise HTTPException(422, str(exc)) from exc
+
+
+# ---------- Per-user data ----------
+def _user_call(fn, *args):
+    try: return fn(*args)
+    except userdata.UserDataError as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/me/portfolio")
+def my_portfolio(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return _user_call(userdata.portfolio, int(user["id"]))
+@app.post("/api/me/holdings")
+def my_holding_upsert(body: HoldingIn, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return _user_call(userdata.upsert_holding, int(user["id"]), body.symbol, body.quantity, body.average_cost)
+@app.delete("/api/me/holdings/{symbol}")
+def my_holding_delete(symbol: str, user: dict[str, object] = Depends(current_user)) -> dict[str, str]:
+    userdata.delete_holding(int(user["id"]), symbol)
+    return {"status": "deleted"}
+@app.get("/api/me/journal")
+def my_journal(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return {"entries": userdata.list_journal(int(user["id"])), "decisions": sorted(userdata.JOURNAL_DECISIONS), "outcomes": sorted(userdata.JOURNAL_OUTCOMES)}
+@app.post("/api/me/journal")
+def my_journal_add(body: JournalIn, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return _user_call(userdata.add_journal, int(user["id"]), body.symbol, body.decision, body.thesis, body.review_on)
+@app.patch("/api/me/journal/{entry_id}")
+def my_journal_outcome(entry_id: int, body: OutcomeIn, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return _user_call(userdata.set_outcome, int(user["id"]), entry_id, body.outcome)
+@app.get("/api/me/paper")
+def my_paper(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return _user_call(userdata.paper_account, int(user["id"]))
+@app.post("/api/me/paper/orders")
+def my_paper_order(body: PaperOrder, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return _user_call(userdata.paper_order, int(user["id"]), body.symbol, body.side, body.quantity)
+
 
 @app.get("/api/status")
 def status() -> dict[str, object]:
@@ -141,7 +198,8 @@ def status() -> dict[str, object]:
         "ai_synthesis": {"enabled": bool(os.getenv("OPENAI_API_KEY"))},
         "paper_broker": {"enabled": gateway.paper_enabled},
         "live_trading": {"enabled": False, "note": "Live execution is blocked in this build."},
-        "portfolio": {"source": "DEMO_HOLDINGS"},
+        "portfolio": {"source": "Per-user holdings (signed in); /api/portfolio remains a labelled sample"},
+        "price_history": {"provider": "Yahoo Finance chart API (unofficial; personal research use)", "demo_mode": os.getenv("MARKET_DATA_MODE", "live") == "demo"},
     }
 
 
