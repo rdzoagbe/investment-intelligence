@@ -1,79 +1,122 @@
 import "./auth.css";
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const tokenKey = "ii_access_token";
-const userKey = "ii_user";
+import { API_BASE, AUTH_CHANGED_EVENT, SESSION_EXPIRED_EVENT, STATIC_HOST, TOKEN_KEY as tokenKey, USER_KEY as userKey, clearSession } from "./lib";
+import { LEGAL, LEGAL_DRAFT_NOTICE, type LegalKey } from "./legal-pages";
 
 type User = { id: number; name: string; email: string; created_at: number };
 const root = document.getElementById("root")!;
-// A static host (GitHub Pages) has no account server: show the labelled demo directly.
-const STATIC_HOST = !API_BASE && location.hostname.endsWith("github.io");
+// A static build has no account server: show the labelled demo directly.
 if (!STATIC_HOST) root.style.visibility = "hidden";
 
-function api(path: string, options: RequestInit = {}) {
+const UNAVAILABLE = "The account server is not reachable right now (a free server can take a minute to wake up). Try again, or continue with demo data.";
+
+function api(path: string, options: RequestInit = {}, timeoutMs = 60000) {
   return fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    signal: AbortSignal.timeout(60000),
+    headers: { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) },
+    signal: AbortSignal.timeout(timeoutMs),
   });
 }
 
+/** Parse a response body as JSON; null when it is not JSON (e.g. an HTML error page from a proxy or static host). */
+async function jsonOrNull(response: Response): Promise<Record<string, unknown> | null> {
+  try { const text = await response.text(); const v = JSON.parse(text); return v && typeof v === "object" ? v as Record<string, unknown> : null; } catch { return null; }
+}
+
+/** True when the response means "no usable account API here" rather than "your input was wrong". */
+export function serverUnavailable(status: number, body: Record<string, unknown> | null) {
+  return status >= 500 || status === 404 || status === 405 || body === null || (status >= 400 && typeof body.detail !== "string" && !Array.isArray(body.detail));
+}
+
+function detailText(body: Record<string, unknown> | null, fallback: string) {
+  const d = body?.detail;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) return d.map(x => (x && typeof x === "object" && "msg" in x ? String((x as { msg: unknown }).msg) : "")).filter(Boolean).join("; ") || fallback;
+  return fallback;
+}
+
 function showAccount(user: User) {
-  const old = document.getElementById("ii-account");
-  old?.remove();
+  document.getElementById("ii-account")?.remove();
   const pill = document.createElement("div");
   pill.id = "ii-account";
   // Built with textContent so a user-chosen name can never inject HTML.
-  const avatar = document.createElement("span"); avatar.className = "ii-avatar"; avatar.textContent = user.name.slice(0, 1).toUpperCase();
+  const avatar = document.createElement("span"); avatar.className = "ii-avatar"; avatar.textContent = user.name.slice(0, 1).toUpperCase(); avatar.setAttribute("aria-hidden", "true");
   const info = document.createElement("span");
   const nameEl = document.createElement("b"); nameEl.textContent = user.name;
   const emailEl = document.createElement("small"); emailEl.textContent = user.email;
   info.append(nameEl, emailEl);
-  const logout = document.createElement("button"); logout.id = "ii-logout"; logout.textContent = "Log out";
+  const logout = document.createElement("button"); logout.id = "ii-logout"; logout.type = "button"; logout.textContent = "Log out";
   pill.append(avatar, info, logout);
   document.body.appendChild(pill);
-  logout.onclick = () => {
-    localStorage.removeItem(tokenKey);
-    localStorage.removeItem(userKey);
+  logout.onclick = async () => {
+    logout.disabled = true; logout.textContent = "Logging out…";
+    let token: string | null = null;
+    try { token = localStorage.getItem(tokenKey); } catch { /* storage unavailable */ }
+    // Revoke the token on the server first so a copied token stops working; clear locally either way.
+    if (token) await api("/api/auth/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } }, 10000).catch(() => undefined);
+    clearSession();
     location.reload();
   };
 }
 
-function gate(message = "") {
+function legalText(key: LegalKey) {
+  const wrap = document.createElement("div");
+  const note = document.createElement("p"); note.className = "ii-draft"; note.textContent = LEGAL_DRAFT_NOTICE;
+  const h = document.createElement("h2"); h.textContent = LEGAL[key].title;
+  wrap.append(note, h);
+  for (const s of LEGAL[key].sections) {
+    const sh = document.createElement("h3"); sh.textContent = s.heading; wrap.append(sh);
+    for (const p of s.paragraphs) { const el = document.createElement("p"); el.textContent = p; wrap.append(el); }
+  }
+  return wrap;
+}
+
+function gate(message = "", showDemo = !!message) {
+  if (document.getElementById("ii-auth-gate")) return;
   const backdrop = document.createElement("div");
   backdrop.id = "ii-auth-gate";
+  backdrop.setAttribute("role", "dialog");
+  backdrop.setAttribute("aria-modal", "true");
+  backdrop.setAttribute("aria-labelledby", "ii-title");
   backdrop.innerHTML = `<div class="ii-auth-card">
-    <div class="ii-logo">II</div>
+    <div class="ii-logo" aria-hidden="true">II</div>
     <div class="ii-eyebrow">AI INVESTMENT INTELLIGENCE</div>
     <h1 id="ii-title">Welcome back</h1>
     <p id="ii-subtitle">Sign in to access your private investment workspace.</p>
-    <div id="ii-error" class="ii-error">${message}</div>
+    <div id="ii-error" class="ii-error" role="alert"></div>
     <form id="ii-form">
-      <div id="ii-name-wrap" class="ii-field hidden"><label>Full name</label><input id="ii-name" autocomplete="name" /></div>
-      <div class="ii-field"><label>Email</label><input id="ii-email" type="email" autocomplete="email" required /></div>
-      <div class="ii-field"><label>Password</label><input id="ii-password" type="password" autocomplete="current-password" minlength="8" required /></div>
+      <div id="ii-name-wrap" class="ii-field hidden"><label for="ii-name">Full name</label><input id="ii-name" autocomplete="name" /></div>
+      <div class="ii-field"><label for="ii-email">Email</label><input id="ii-email" type="email" autocomplete="email" required /></div>
+      <div class="ii-field"><label for="ii-password">Password</label><input id="ii-password" type="password" autocomplete="current-password" minlength="8" required /></div>
+      <div id="ii-terms-wrap" class="ii-terms hidden">
+        <label for="ii-terms"><input id="ii-terms" type="checkbox" /> I have read the Terms, Privacy notice and Risk disclosure</label>
+        <div class="ii-legal-links">Read: <button type="button" data-legal="terms">Terms</button> · <button type="button" data-legal="privacy">Privacy notice</button> · <button type="button" data-legal="risk">Risk disclosure</button></div>
+      </div>
       <button class="ii-primary" type="submit" id="ii-submit">Sign in</button>
     </form>
-    <button class="ii-switch" id="ii-switch">New here? Create an account</button>
+    <button class="ii-switch" id="ii-switch" type="button">New here? Create an account</button>
     <button class="ii-switch hidden" id="ii-demo" type="button">Continue with demo data (no account)</button>
-    <p class="ii-footnote">Your account data is stored server-side. Never share your investment or broker credentials.</p>
+    <p class="ii-footnote">Research and education tool, not investment advice. Your account data is stored server-side. Never share your investment or broker credentials.</p>
+    <div id="ii-legal" class="ii-legal hidden" role="document"><button type="button" id="ii-legal-close" class="ii-switch">Back to sign-in</button><div id="ii-legal-body"></div></div>
   </div>`;
   document.body.appendChild(backdrop);
 
   let signup = false;
-  const title = document.getElementById("ii-title")!;
-  const subtitle = document.getElementById("ii-subtitle")!;
-  const submit = document.getElementById("ii-submit")!;
-  const nameWrap = document.getElementById("ii-name-wrap")!;
-  const switcher = document.getElementById("ii-switch")!;
-  const error = document.getElementById("ii-error")!;
-  const form = document.getElementById("ii-form") as HTMLFormElement;
+  const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+  const title = $("ii-title"), subtitle = $("ii-subtitle"), submit = $<HTMLButtonElement>("ii-submit"), nameWrap = $("ii-name-wrap");
+  const termsWrap = $("ii-terms-wrap"), terms = $<HTMLInputElement>("ii-terms"), switcher = $("ii-switch"), error = $("ii-error");
+  const form = $<HTMLFormElement>("ii-form"), demo = $("ii-demo"), legal = $("ii-legal"), legalBody = $("ii-legal-body");
   const setError = (text: string) => { error.textContent = text; error.classList.toggle("show", !!text); };
+  const showDemoButton = () => demo.classList.remove("hidden");
+  setError(message);
+  if (showDemo) showDemoButton();
 
   switcher.onclick = () => {
     signup = !signup;
     nameWrap.classList.toggle("hidden", !signup);
-    (document.getElementById("ii-name") as HTMLInputElement).required = signup;
+    termsWrap.classList.toggle("hidden", !signup);
+    $<HTMLInputElement>("ii-name").required = signup;
+    terms.required = signup;
+    $<HTMLInputElement>("ii-password").autocomplete = signup ? "new-password" : "current-password";
     title.textContent = signup ? "Create your account" : "Welcome back";
     subtitle.textContent = signup ? "Create your secure investment research workspace." : "Sign in to access your private investment workspace.";
     submit.textContent = signup ? "Create account" : "Sign in";
@@ -81,57 +124,79 @@ function gate(message = "") {
     setError("");
   };
 
-  const demo = document.getElementById("ii-demo")!;
+  backdrop.querySelectorAll<HTMLButtonElement>("[data-legal]").forEach(b => {
+    b.onclick = () => { legalBody.replaceChildren(legalText(b.dataset.legal as LegalKey)); legal.classList.remove("hidden"); $("ii-legal-close").focus(); };
+  });
+  $("ii-legal-close").onclick = () => { legal.classList.add("hidden"); terms.focus(); };
+
   demo.onclick = () => { backdrop.remove(); root.style.visibility = "visible"; };
-  if (message) demo.classList.remove("hidden");
+
+  // Probe the API so a host without one (static deploy, wrong proxy) offers the demo instead of a dead form.
+  if (!showDemo) {
+    api("/api/health", {}, 60000).then(async r => {
+      const body = await jsonOrNull(r);
+      if (!r.ok || body === null) { if (!error.textContent) setError(UNAVAILABLE); showDemoButton(); }
+    }).catch(() => { if (!error.textContent) setError(UNAVAILABLE); showDemoButton(); });
+  }
 
   form.onsubmit = async (event) => {
     event.preventDefault();
     setError("");
-    submit.setAttribute("disabled", "true");
+    if (signup && !terms.checked) { setError("Please confirm that you have read the Terms, Privacy notice and Risk disclosure."); terms.focus(); return; }
+    submit.disabled = true;
     submit.textContent = signup ? "Creating…" : "Signing in…";
+    const reset = () => { submit.disabled = false; submit.textContent = signup ? "Create account" : "Sign in"; };
     try {
-      const body = signup
-        ? { name: (document.getElementById("ii-name") as HTMLInputElement).value, email: (document.getElementById("ii-email") as HTMLInputElement).value, password: (document.getElementById("ii-password") as HTMLInputElement).value }
-        : { email: (document.getElementById("ii-email") as HTMLInputElement).value, password: (document.getElementById("ii-password") as HTMLInputElement).value };
+      const email = $<HTMLInputElement>("ii-email").value, password = $<HTMLInputElement>("ii-password").value;
+      const body = signup ? { name: $<HTMLInputElement>("ii-name").value, email, password, accept_terms: true } : { email, password };
       const response = await api(signup ? "/api/auth/register" : "/api/auth/login", { method: "POST", body: JSON.stringify(body) });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || "Authentication failed.");
+      const data = await jsonOrNull(response);
+      if (!response.ok) {
+        if (response.status === 429) {
+          const retry = Number(response.headers.get("Retry-After"));
+          setError(`${detailText(data, "Too many attempts.")}${Number.isFinite(retry) && retry > 0 ? ` Try again in about ${Math.ceil(retry / 60)} minute${retry > 60 ? "s" : ""}.` : ""}`);
+        } else if (serverUnavailable(response.status, data)) {
+          setError(UNAVAILABLE); showDemoButton();
+        } else {
+          setError(detailText(data, "Authentication failed."));
+        }
+        reset(); return;
+      }
+      if (!data || typeof data.access_token !== "string" || !data.user) { setError(UNAVAILABLE); showDemoButton(); reset(); return; }
       localStorage.setItem(tokenKey, data.access_token);
       localStorage.setItem(userKey, JSON.stringify(data.user));
       backdrop.remove();
       root.style.visibility = "visible";
-      showAccount(data.user);
-    } catch (err) {
-      const network = err instanceof TypeError || (err instanceof Error && /fetch|timed? ?out|abort/i.test(err.message + err.name));
-      setError(network ? "The account server is not reachable right now (a free server can take a minute to wake up). Try again, or continue with demo data." : (err instanceof Error ? err.message : "Unable to sign in."));
-      if (network) demo.classList.remove("hidden");
-      submit.removeAttribute("disabled");
-      submit.textContent = signup ? "Create account" : "Sign in";
+      showAccount(data.user as User);
+      // Lets the app re-detect API mode and reload per-user data without a page reload.
+      window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+    } catch {
+      setError(UNAVAILABLE); showDemoButton(); reset();
     }
   };
 }
 
+// Any authenticated request that returns 401 (expired or revoked token) re-opens the sign-in gate.
+window.addEventListener(SESSION_EXPIRED_EVENT, () => {
+  document.getElementById("ii-account")?.remove();
+  gate("Your session has expired or was signed out. Please sign in again.", false);
+});
+
 async function boot() {
   if (STATIC_HOST) return;
-  const token = localStorage.getItem(tokenKey);
+  let token: string | null = null;
+  try { token = localStorage.getItem(tokenKey); } catch { /* storage unavailable */ }
   if (!token) { gate(); return; }
   try {
     const response = await api("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
-    if (response.status === 401) throw new Error("expired");
-    if (!response.ok) { gate("The account server returned an error. Try again later or continue with demo data."); return; }
-    const user = await response.json() as User;
+    if (response.status === 401) { clearSession(); gate(); return; }
+    const user = await jsonOrNull(response);
+    if (!response.ok || !user) { gate("The account server returned an error. Try again later or continue with demo data."); return; }
     localStorage.setItem(userKey, JSON.stringify(user));
     root.style.visibility = "visible";
-    showAccount(user);
-  } catch (err) {
-    if (err instanceof Error && err.message === "expired") {
-      localStorage.removeItem(tokenKey);
-      localStorage.removeItem(userKey);
-      gate();
-    } else {
-      gate("The account server is not reachable right now. A free server can take a minute to wake up.");
-    }
+    showAccount(user as unknown as User);
+  } catch {
+    gate("The account server is not reachable right now. A free server can take a minute to wake up.");
   }
 }
 

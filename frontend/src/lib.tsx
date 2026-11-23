@@ -1,31 +1,90 @@
 import type { ReactNode } from "react";
 
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-// A static host (GitHub Pages) has no API server unless one is configured explicitly.
-export const STATIC_HOST = !API_BASE && location.hostname.endsWith("github.io");
+// A static build (GitHub Pages, or any host built with VITE_STATIC_DEMO=true) has no API server
+// unless one is configured explicitly. The github.io check is kept as a fallback for older builds.
+export const STATIC_HOST = !API_BASE && (import.meta.env.VITE_STATIC_DEMO === "true" || location.hostname.endsWith("github.io"));
 export const TOKEN_KEY = "ii_access_token";
+export const USER_KEY = "ii_user";
+/** Fired on window when the stored session changes (sign-in, sign-out, expiry). */
+export const AUTH_CHANGED_EVENT = "ii-auth-changed";
+/** Fired on window when an authenticated request is rejected with 401: the sign-in gate re-opens. */
+export const SESSION_EXPIRED_EVENT = "ii-session-expired";
 
 export type Mode = { kind: "loading" } | { kind: "api" } | { kind: "demo"; reason: string };
 export const signedIn = () => { try { return !!localStorage.getItem(TOKEN_KEY); } catch { return false; } };
+export function clearSession() {
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch { /* storage unavailable */ }
+}
+function readToken(): string | null {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
-/** Fetch JSON from the API, sending the session token when present and surfacing the server's error text. */
-export async function api<T>(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
-  const { timeoutMs = 25000, headers, ...rest } = init;
-  let token: string | null = null;
-  try { token = localStorage.getItem(TOKEN_KEY); } catch { /* storage unavailable */ }
+/** Human-readable reason for a failed request (timeout, HTTP status, network). */
+export function describeError(e: unknown): string {
+  if (e instanceof ApiError) return `${e.message}${/^HTTP \d+$/.test(e.message) ? "" : ` (HTTP ${e.status})`}`;
+  if (e instanceof DOMException && e.name === "TimeoutError") return "The request timed out.";
+  if (e instanceof DOMException && e.name === "AbortError") return "The request was cancelled.";
+  if (e instanceof TypeError) return "The server could not be reached (network error).";
+  return e instanceof Error ? e.message : String(e);
+}
+export const isAbort = (e: unknown) => e instanceof DOMException && e.name === "AbortError";
+
+function combineSignals(timeoutMs: number, signal?: AbortSignal | null): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!signal) return timeout;
+  if (typeof AbortSignal.any === "function") return AbortSignal.any([timeout, signal]);
+  const ctrl = new AbortController();
+  const forward = (s: AbortSignal) => () => ctrl.abort(s.reason);
+  timeout.addEventListener("abort", forward(timeout)); signal.addEventListener("abort", forward(signal));
+  if (signal.aborted) ctrl.abort(signal.reason);
+  return ctrl.signal;
+}
+
+/** A 401 on a request that carried a token means the session ended: clear it and re-open sign-in. */
+function handleUnauthorized(sentToken: string | null) {
+  if (!sentToken || readToken() !== sentToken) return;
+  clearSession();
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+  window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+}
+
+async function request(path: string, init: RequestInit & { timeoutMs?: number }): Promise<Response> {
+  const { timeoutMs = 25000, headers, signal, ...rest } = init;
+  const token = readToken();
   const response = await fetch(`${API_BASE}${path}`, {
     ...rest,
     headers: { ...(rest.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(headers || {}) },
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: combineSignals(timeoutMs, signal),
   });
   if (!response.ok) {
+    if (response.status === 401) handleUnauthorized(token);
     let detail = `HTTP ${response.status}`;
     try { const body = await response.json(); if (typeof body.detail === "string") detail = body.detail; else if (Array.isArray(body.detail)) detail = body.detail.map((d: { msg?: string }) => d.msg).join("; "); } catch { /* not JSON */ }
     throw new ApiError(response.status, detail);
   }
+  return response;
+}
+
+/** Fetch JSON from the API, sending the session token when present and surfacing the server's error text. */
+export async function api<T>(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
+  const response = await request(path, init);
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+/** Download an authenticated API response as a file (e.g. the personal data export). */
+export async function download(path: string, fallbackName: string) {
+  const response = await request(path, { timeoutMs: 60000 });
+  const blob = await response.blob();
+  const match = /filename="?([^";]+)"?/i.exec(response.headers.get("Content-Disposition") || "");
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = match?.[1] || fallbackName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function money(v: number | null | undefined, c = "USD") {
@@ -35,8 +94,13 @@ export function money(v: number | null | undefined, c = "USD") {
 }
 export const num = (v: number | null | undefined, d = 2) => (v == null || !Number.isFinite(v) ? "—" : v.toLocaleString("en-GB", { maximumFractionDigits: d }));
 export const pct = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`);
-export const cls = (v: number | null | undefined) => ((v ?? 0) < 0 ? "down" : "up");
+/** Up/down colour class; null/undefined values get no colour. */
+export const cls = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? "" : v < 0 ? "down" : "up");
 export const when = (epoch: number) => new Date(epoch * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+/** Today's date in the viewer's local time zone, as YYYY-MM-DD (comparable with <input type="date"> values). */
+export function localToday(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 // Neutral score bands instead of BUY/SELL wording: this is a research tool, not a recommendation service.
 export function band(score: number) {
@@ -45,7 +109,16 @@ export function band(score: number) {
   if (score >= 60) return { label: "Neutral", cls: "b-neutral" };
   return { label: "Low score", cls: "b-low" };
 }
-export const statusCls = (s: string) => (s === "LIVE" ? "st-live" : s === "DEMO" ? "st-demo" : "st-off");
+export const statusCls = (s: string | null | undefined) => {
+  switch ((s || "").toUpperCase()) {
+    case "LIVE": return "st-live";
+    case "DEMO": case "SEED": return "st-demo";
+    case "PARTIAL": case "PARTIAL_LIVE": return "st-partial";
+    case "UNAVAILABLE": return "st-unavail";
+    case "USER": case "IDENTITY": return "st-user";
+    default: return "st-off";
+  }
+};
 
 export function Kpi({ title, value, sub }: { title: string; value: string; sub: string }) {
   return <div className="card kpi"><span>{title}</span><strong>{value}</strong><small>{sub}</small></div>;

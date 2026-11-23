@@ -6,15 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit --jsx react-jsx --module esnext --moduleResolution bundler --target es2022 --strict --resolveJsonModule --skipLibCheck --types vite/client src/main.tsx src/auth-bootstrap.ts"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "typescript": "latest",
-    "vite": "latest",
-    "lucide-react": "latest"
+    "@vitejs/plugin-react": "6.3.0",
+    "lucide-react": "1.77.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "vite": "8.3.8"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2"
+  }
 }
