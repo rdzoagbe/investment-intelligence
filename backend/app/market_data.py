@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import http.client
 import json
 import os
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -28,6 +30,10 @@ class MarketQuote:
 _YAHOO_SYMBOLS = {
     "ACCESS": None,
     "VISA": "V",
+    # Listings whose Yahoo symbol differs from the internal symbol. ASML and SAP are
+    # quoted on their home exchanges so the provider currency (EUR) matches the dataset.
+    "ASML": "ASML.AS",
+    "SAP": "SAP.DE",
     "BRK-B": "BRK-B",
     "NESN.SW": "NESN.SW",
     "MC.PA": "MC.PA",
@@ -44,10 +50,23 @@ def _provider_symbol(symbol: str) -> str | None:
     return None
 
 
+# Every transport or parse failure a provider call can produce. urllib only wraps
+# errors raised while sending the request in URLError; errors from getresponse()/read()
+# (RemoteDisconnected, IncompleteRead, ConnectionResetError, ssl.SSLError, ...) arrive
+# unwrapped, so adapters must catch these broad bases.
+PROVIDER_ERRORS: tuple[type[BaseException], ...] = (OSError, http.client.HTTPException, ValueError, TypeError, KeyError, IndexError, AttributeError)
+
+
 def _fetch_json(url: str, timeout: float = 5.0) -> dict[str, object]:
+    """Fetch and decode JSON. Any transport/parse failure is re-raised as URLError."""
     request = Request(url, headers={"User-Agent": "Investment-Intelligence/1.0", "Accept": "application/json"})
-    with urlopen(request, timeout=timeout) as response:  # noqa: S310 - URL is constructed internally
-        return json.loads(response.read().decode("utf-8"))
+    try:
+        with urlopen(request, timeout=timeout) as response:  # noqa: S310 - URL is constructed internally
+            return json.loads(response.read().decode("utf-8"))
+    except URLError:
+        raise
+    except (OSError, http.client.HTTPException, ValueError) as exc:
+        raise URLError(exc) from exc
 
 
 _CACHE: dict[str, tuple[float, MarketQuote | None]] = {}
@@ -72,6 +91,45 @@ def yahoo_quote(symbol: str, provider_symbol: str | None = None) -> MarketQuote 
     return result
 
 
+def _local_date(epoch: float, gmtoffset: int) -> str:
+    return time.strftime("%Y-%m-%d", time.gmtime(int(epoch) + gmtoffset))
+
+
+def previous_session_close(node: dict[str, object]) -> float | None:
+    """True previous trading-session close from a Yahoo chart result node.
+
+    For range=5d the chart meta carries chartPreviousClose, which is the close BEFORE the
+    five-day window (a ~weekly base), and usually no previousClose. So the previous close
+    is derived from the daily bars: the last non-null close whose bar falls on an earlier
+    exchange-local date than the session of regularMarketTime (that handles both a
+    finished session and today's in-progress bar). meta.previousClose, which Yahoo only
+    sends when it means the prior session close, is used when no bars are available.
+    chartPreviousClose is never used. Returns None when it cannot be determined.
+    """
+    meta = node.get("meta") or {}
+    if not isinstance(meta, dict):
+        return None
+    stamps = node.get("timestamp") or []
+    indicators = node.get("indicators") or {}
+    quotes = indicators.get("quote") if isinstance(indicators, dict) else None
+    closes = (quotes[0] or {}).get("close") if isinstance(quotes, list) and quotes and isinstance(quotes[0], dict) else None
+    market_time = meta.get("regularMarketTime")
+    if isinstance(stamps, list) and isinstance(closes, list) and stamps and len(stamps) == len(closes) and isinstance(market_time, (int, float)):
+        offset = meta.get("gmtoffset")
+        offset = int(offset) if isinstance(offset, (int, float)) else 0
+        session = _local_date(market_time, offset)
+        for ts, close in zip(reversed(stamps), reversed(closes)):
+            if not isinstance(ts, (int, float)) or not isinstance(close, (int, float)) or close <= 0:
+                continue
+            if _local_date(ts, offset) < session:
+                return float(close)
+        return None
+    previous = meta.get("previousClose")
+    if isinstance(previous, (int, float)) and previous > 0:
+        return float(previous)
+    return None
+
+
 def _yahoo_fetch(symbol: str, yahoo_symbol: str) -> MarketQuote | None:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{quote(yahoo_symbol)}?range=5d&interval=1d"
     try:
@@ -79,17 +137,16 @@ def _yahoo_fetch(symbol: str, yahoo_symbol: str) -> MarketQuote | None:
         result = payload.get("chart", {}).get("result", [])
         if not result:
             return None
-        meta = result[0].get("meta", {})
+        node = result[0]
+        meta = node.get("meta", {})
         price = meta.get("regularMarketPrice")
-        previous = meta.get("previousClose") or meta.get("chartPreviousClose")
         if not isinstance(price, (int, float)) or price <= 0:
             return None
-        change = None
-        if isinstance(previous, (int, float)) and previous > 0:
-            change = round((float(price) / float(previous) - 1) * 100, 3)
+        previous = previous_session_close(node)
+        change = round((float(price) / previous - 1) * 100, 3) if previous else None
         timestamp = meta.get("regularMarketTime")
-        return MarketQuote(symbol, float(price), float(previous) if isinstance(previous, (int, float)) else None, change, str(meta.get("currency") or ""), int(timestamp) if isinstance(timestamp, (int, float)) else None, "Yahoo Finance chart API", "LIVE")
-    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+        return MarketQuote(symbol, float(price), previous, change, str(meta.get("currency") or ""), int(timestamp) if isinstance(timestamp, (int, float)) else None, "Yahoo Finance chart API", "LIVE")
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, *PROVIDER_ERRORS):
         return None
 
 
@@ -137,3 +194,72 @@ def index_quotes() -> list[dict[str, object]]:
     for (name, provider_symbol), q in zip(INDEX_SYMBOLS, quotes):
         out.append({"name": name, "symbol": provider_symbol, "value": q.price if q else None, "change_pct": q.change_pct if q else None, "timestamp": q.timestamp if q else None, "provider": q.provider if q else None, "status": "LIVE" if q else "UNAVAILABLE"})
     return out
+
+
+# --- FX ---------------------------------------------------------------------------
+# Rates come from the provider only. Nothing is assumed: when a rate cannot be fetched
+# it is reported UNAVAILABLE with rate None, never 1:1 or a seed value.
+_FX_CACHE: dict[str, tuple[float, dict[str, object]]] = {}
+_CURRENCY = re.compile(r"^[A-Z]{3}$")
+# Minor-unit quotes (e.g. London prices in pence) and their major currency.
+_MINOR_UNITS = {"GBp": ("GBP", 100.0), "GBX": ("GBP", 100.0), "ILA": ("ILS", 100.0), "ZAc": ("ZAR", 100.0)}
+
+
+def _fx_unavailable() -> dict[str, object]:
+    return {"rate": None, "status": "UNAVAILABLE", "source": None, "timestamp": None}
+
+
+def _fx_fetch(base: str, quote_ccy: str) -> dict[str, object]:
+    pair = f"{base}{quote_ccy}=X"
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{quote(pair)}?range=1d&interval=1d"
+    try:
+        payload = _fetch_json(url, timeout=float(os.getenv("MARKET_DATA_TIMEOUT", "5")))
+        result = payload.get("chart", {}).get("result", [])
+        if not result:
+            return _fx_unavailable()
+        meta = result[0].get("meta", {})
+        rate = meta.get("regularMarketPrice")
+        if not isinstance(rate, (int, float)) or rate <= 0:
+            return _fx_unavailable()
+        stamp = meta.get("regularMarketTime")
+        return {"rate": float(rate), "status": "LIVE", "source": f"Yahoo Finance chart API ({pair})", "timestamp": int(stamp) if isinstance(stamp, (int, float)) else None}
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, *PROVIDER_ERRORS):
+        return _fx_unavailable()
+
+
+def fx_rate(base: str, quote: str) -> dict[str, object]:  # noqa: A002 - contract name
+    """Units of `quote` currency per one unit of `base` currency.
+
+    Returns {"rate", "status": LIVE|UNAVAILABLE|IDENTITY, "source", "timestamp"}. Never raises
+    and never invents a rate; demo mode makes no network calls so rates are UNAVAILABLE.
+    """
+    base = str(base or "").strip()
+    quote_ccy = str(quote or "").strip()
+    divisor = 1.0
+    if base in _MINOR_UNITS:
+        base, divisor = _MINOR_UNITS[base]
+    quote_divisor = 1.0
+    if quote_ccy in _MINOR_UNITS:
+        quote_ccy, quote_divisor = _MINOR_UNITS[quote_ccy]
+    base, quote_ccy = base.upper(), quote_ccy.upper()
+    if not _CURRENCY.match(base) or not _CURRENCY.match(quote_ccy):
+        return _fx_unavailable()
+    if base == quote_ccy:
+        factor = quote_divisor / divisor
+        return {"rate": factor, "status": "IDENTITY", "source": None if factor == 1.0 else "Minor currency unit conversion", "timestamp": None}
+    if os.getenv("MARKET_DATA_MODE", "live").strip().lower() == "demo":
+        return _fx_unavailable()
+    key = f"{base}{quote_ccy}"
+    ttl = float(os.getenv("MARKET_DATA_CACHE_SECONDS", "60"))
+    now = time.time()
+    with _CACHE_LOCK:
+        hit = _FX_CACHE.get(key)
+    if hit and now - hit[0] < ttl:
+        result = dict(hit[1])
+    else:
+        result = _fx_fetch(base, quote_ccy)
+        with _CACHE_LOCK:
+            _FX_CACHE[key] = (now, dict(result))
+    if result["rate"] is not None and (divisor != 1.0 or quote_divisor != 1.0):
+        result["rate"] = float(result["rate"]) * quote_divisor / divisor
+    return result

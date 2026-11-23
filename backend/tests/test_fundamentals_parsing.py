@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from app import fundamentals
 from app.engine import live_pe
 
@@ -51,9 +53,11 @@ def test_sec_snapshot_growth_from_consecutive_years(monkeypatch):
 
 
 def test_live_pe_requires_live_price_live_eps_and_usd():
-    live = fundamentals.FundamentalSnapshot("X", 2024, 1, 1, 1, 4.0, 0, 0, 1, 1, 1, 0, "SEC Company Facts", "LIVE")
+    live = fundamentals.FundamentalSnapshot("X", 2024, 1, 1, 1, 4.0, 0, 0, 1, 1, 1, 0, "SEC Company Facts", "LIVE",
+                                            eps_period_end="2024-06-30", diluted_shares=100.0, shares_outstanding=101.0, shares_outstanding_date="2024-10-01")
     demo = fundamentals.FundamentalSnapshot("X", None, 1, 1, 1, 4.0, 0, 0, 1, 1, 1, 0, "Internal", "DEMO")
-    assert live_pe(100, True, "USD", live) == 25.0
-    assert live_pe(100, False, "USD", live) is None
-    assert live_pe(100, True, "EUR", live) is None
-    assert live_pe(100, True, "USD", demo) is None
+    today = date(2024, 11, 1)
+    assert live_pe(100, True, "USD", live, today) == 25.0
+    assert live_pe(100, False, "USD", live, today) is None
+    assert live_pe(100, True, "EUR", live, today) is None
+    assert live_pe(100, True, "USD", demo, today) is None

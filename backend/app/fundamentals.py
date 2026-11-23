@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import http.client
 import json
 import os
+import threading
 import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
@@ -26,22 +28,32 @@ class FundamentalSnapshot:
     net_debt: float | None
     source: str
     status: str
+    # Provenance for the live P/E guard: the period the EPS describes, the weighted
+    # diluted share count for that period, and the latest cover-page share count.
+    eps_period_end: str | None = None
+    diluted_shares: float | None = None
+    shares_outstanding: float | None = None
+    shares_outstanding_date: str | None = None
 
 
+# TSM is deliberately absent: TSMC files 20-F reports in the ifrs-full taxonomy (TWD),
+# which this us-gaap/10-K adapter cannot parse, so it always uses labelled seed values.
 _SEC_CIK = {
     "MSFT": "0000789019", "AAPL": "0000320193", "GOOGL": "0001652044", "META": "0001326801",
-    "NVDA": "0001045810", "AVGO": "0001730168", "TSM": "0001046179", "ORCL": "0001341439",
+    "NVDA": "0001045810", "AVGO": "0001730168", "ORCL": "0001341439",
     "CRM": "0001108524", "JPM": "0000019617", "BRK-B": "0001067983", "LLY": "0000059478",
     "JNJ": "0000200406", "KO": "0000021344", "AMZN": "0001018724", "TSLA": "0001318605",
 }
 
 _TAGS = {
-    "revenue": ("RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet"),
+    # Total-revenue tags first: banks and insurers report the ASC 606 tag only for in-scope fee income.
+    "revenue": ("Revenues", "RevenuesNetOfInterestExpense", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet"),
     "operating_income": ("OperatingIncomeLoss",),
     "cfo": ("NetCashProvidedByUsedInOperatingActivities",),
-    "capex": ("PaymentsToAcquirePropertyPlantAndEquipment",),
+    "capex": ("PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"),
     "eps": ("EarningsPerShareDiluted",),
-    "debt_current": ("LongTermDebtCurrent",),
+    "diluted_shares": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
+    "debt_current": ("LongTermDebtCurrent", "DebtCurrent"),
     "debt_noncurrent": ("LongTermDebtNoncurrent",),
     "cash": ("CashAndCashEquivalentsAtCarryingValue",),
 }
@@ -56,10 +68,24 @@ def sec_user_agent() -> str | None:
     return value if "@" in value and "localhost" not in value else None
 
 
+# SEC fair access: at most a few concurrent downloads and well under 10 requests per second.
+_SEC_SEMAPHORE = threading.BoundedSemaphore(int(os.getenv("SEC_MAX_CONCURRENCY", "2")))
+_SEC_PACE_LOCK = threading.Lock()
+_SEC_MIN_INTERVAL = 0.2
+_sec_last_request = 0.0
+
+
 def _fetch_json(url: str) -> dict[str, object]:
-    request = Request(url, headers={"User-Agent": sec_user_agent() or "", "Accept": "application/json"})
-    with urlopen(request, timeout=float(os.getenv("FUNDAMENTALS_TIMEOUT", "8"))) as response:  # noqa: S310
-        return json.loads(response.read().decode("utf-8"))
+    global _sec_last_request
+    with _SEC_SEMAPHORE:
+        with _SEC_PACE_LOCK:
+            wait = _SEC_MIN_INTERVAL - (time.monotonic() - _sec_last_request)
+            if wait > 0:
+                time.sleep(wait)
+            _sec_last_request = time.monotonic()
+        request = Request(url, headers={"User-Agent": sec_user_agent() or "", "Accept": "application/json"})
+        with urlopen(request, timeout=float(os.getenv("FUNDAMENTALS_TIMEOUT", "8"))) as response:  # noqa: S310
+            return json.loads(response.read().decode("utf-8"))
 
 
 def _days(start: str, end: str) -> int | None:
@@ -70,7 +96,29 @@ def _days(start: str, end: str) -> int | None:
         return None
 
 
-def _annual_values(facts: dict[str, object], tags: tuple[str, ...]) -> list[dict[str, object]]:
+def _tag_annual_values(units: dict[str, object], tag: str) -> list[dict[str, object]]:
+    node = units.get(tag)
+    if not node:
+        return []
+    unit_map = node.get("units", {})
+    values = unit_map.get("USD") or unit_map.get("USD/shares") or unit_map.get("shares")
+    if not values:
+        return []
+    by_end: dict[str, dict[str, object]] = {}
+    for v in values:
+        if v.get("form") not in {"10-K", "10-K/A"} or not isinstance(v.get("val"), (int, float)) or not v.get("end"):
+            continue
+        if v.get("start"):
+            span = _days(str(v["start"]), str(v["end"]))
+            if span is None or not 350 <= span <= 380:
+                continue
+        end = str(v["end"])
+        if end not in by_end or str(v.get("filed", "")) > str(by_end[end].get("filed", "")):
+            by_end[end] = v
+    return sorted(by_end.values(), key=lambda v: str(v["end"]), reverse=True)
+
+
+def _annual_values(facts: dict[str, object], tags: tuple[str, ...], prefer_larger_on_tie: bool = False) -> list[dict[str, object]]:
     """Fiscal-year values from 10-K filings, one per period end, newest first.
 
     A 10-K repeats prior years as comparatives under the same `fy`, so values are
@@ -80,27 +128,15 @@ def _annual_values(facts: dict[str, object], tags: tuple[str, ...]) -> list[dict
     units = facts.get("facts", {}).get("us-gaap", {})
     best: list[dict[str, object]] = []
     # Issuers change tags over time; use whichever candidate tag has the most recent period.
+    # On a tie, the earlier tag wins unless prefer_larger_on_tie picks the larger latest value
+    # (revenue: a total tag always covers at least the ASC 606 subset).
     for tag in tags:
-        node = units.get(tag)
-        if not node:
+        ordered = _tag_annual_values(units, tag)
+        if not ordered:
             continue
-        unit_map = node.get("units", {})
-        values = unit_map.get("USD") or unit_map.get("USD/shares")
-        if not values:
-            continue
-        by_end: dict[str, dict[str, object]] = {}
-        for v in values:
-            if v.get("form") not in {"10-K", "10-K/A"} or not isinstance(v.get("val"), (int, float)) or not v.get("end"):
-                continue
-            if v.get("start"):
-                span = _days(str(v["start"]), str(v["end"]))
-                if span is None or not 350 <= span <= 380:
-                    continue
-            end = str(v["end"])
-            if end not in by_end or str(v.get("filed", "")) > str(by_end[end].get("filed", "")):
-                by_end[end] = v
-        ordered = sorted(by_end.values(), key=lambda v: str(v["end"]), reverse=True)
-        if ordered and (not best or str(ordered[0]["end"]) > str(best[0]["end"])):
+        if not best or str(ordered[0]["end"]) > str(best[0]["end"]):
+            best = ordered
+        elif prefer_larger_on_tie and str(ordered[0]["end"]) == str(best[0]["end"]) and float(ordered[0]["val"]) > float(best[0]["val"]):
             best = ordered
     return best
 
@@ -113,18 +149,81 @@ def _latest_annual(facts: dict[str, object], tags: tuple[str, ...]) -> tuple[flo
     return float(latest["val"]), int(str(latest["end"])[:4])
 
 
-_SEC_CACHE: dict[str, tuple[float, "FundamentalSnapshot | None"]] = {}
+def _value_at(facts: dict[str, object], tags: tuple[str, ...], end: str | None, tolerance_days: int = 7) -> float | None:
+    """The annual value for the period ending at `end` (within a few days), from any candidate tag.
+
+    Values from other fiscal years are never mixed in: a tag the issuer stopped using
+    years ago must not be combined with current revenue.
+    """
+    if not end:
+        return None
+    units = facts.get("facts", {}).get("us-gaap", {})
+    for tag in tags:
+        for v in _tag_annual_values(units, tag):
+            gap = _days(str(v["end"]), end)
+            if gap is not None and abs(gap) <= tolerance_days:
+                return float(v["val"])
+    return None
+
+
+def _latest_shares_outstanding(facts: dict[str, object]) -> tuple[float | None, str | None]:
+    """Latest cover-page share count (dei), summed across share classes reported in one filing."""
+    node = facts.get("facts", {}).get("dei", {}).get("EntityCommonStockSharesOutstanding") or {}
+    values = [v for v in (node.get("units", {}).get("shares") or []) if isinstance(v.get("val"), (int, float)) and v.get("end")]
+    if not values:
+        return None, None
+    latest_end = max(str(v["end"]) for v in values)
+    at_end = [v for v in values if str(v["end"]) == latest_end]
+    latest_filed = max(str(v.get("filed", "")) for v in at_end)
+    rows = {(str(v.get("accn", "")), v.get("frame"), float(v["val"])) for v in at_end if str(v.get("filed", "")) == latest_filed}
+    return sum(r[2] for r in rows), latest_end
+
+
+_SEC_CACHE: dict[str, tuple[float, "FundamentalSnapshot | None", float]] = {}
+_SEC_CACHE_LOCK = threading.Lock()
+_SEC_KEY_LOCKS: dict[str, threading.Lock] = {}
+_SUCCESS_TTL = 43200.0          # 12 hours
+_TRANSIENT_FAILURE_TTL = 600.0  # network errors: retry after 10 minutes
+_STRUCTURAL_FAILURE_TTL = 7 * 86400.0  # fetched fine but nothing usable (e.g. a 20-F/IFRS filer)
+
+
+class _StructuralMiss(Exception):
+    """The filing data was retrieved but contains no usable us-gaap 10-K facts."""
 
 
 def sec_fundamentals(symbol: str) -> FundamentalSnapshot | None:
-    """Annual filings change rarely; cache for 12 hours (failures for 10 minutes)."""
+    """Annual filings change rarely; cache for 12 hours.
+
+    Single-flight per symbol: concurrent callers wait for one download instead of each
+    fetching and parsing the multi-MB companyfacts document. Network failures are retried
+    after 10 minutes; structural misses (no usable us-gaap data) are cached for a week.
+    """
     key = symbol.upper()
-    hit = _SEC_CACHE.get(key)
-    if hit and time.time() - hit[0] < (43200 if hit[1] else 600):
-        return hit[1]
-    result = _sec_fundamentals_uncached(key)
-    _SEC_CACHE[key] = (time.time(), result)
-    return result
+
+    def cached() -> tuple[bool, FundamentalSnapshot | None]:
+        with _SEC_CACHE_LOCK:
+            hit = _SEC_CACHE.get(key)
+        if hit and time.time() - hit[0] < hit[2]:
+            return True, hit[1]
+        return False, None
+
+    found, value = cached()
+    if found:
+        return value
+    with _SEC_CACHE_LOCK:
+        key_lock = _SEC_KEY_LOCKS.setdefault(key, threading.Lock())
+    with key_lock:
+        found, value = cached()
+        if found:
+            return value
+        try:
+            result = _sec_fundamentals_uncached(key)
+            ttl = _SUCCESS_TTL if result else _TRANSIENT_FAILURE_TTL
+        except _StructuralMiss:
+            result, ttl = None, _STRUCTURAL_FAILURE_TTL
+        with _SEC_CACHE_LOCK:
+            _SEC_CACHE[key] = (time.time(), result, ttl)
+        return result
 
 
 def _sec_fundamentals_uncached(symbol: str) -> FundamentalSnapshot | None:
@@ -133,28 +232,50 @@ def _sec_fundamentals_uncached(symbol: str) -> FundamentalSnapshot | None:
         return None
     try:
         facts = _fetch_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json")
-        revenue_values = _annual_values(facts, _TAGS["revenue"])
-        revenue = float(revenue_values[0]["val"]) if revenue_values else None
-        fy = int(str(revenue_values[0]["end"])[:4]) if revenue_values else None
-        prior_revenue = float(revenue_values[1]["val"]) if len(revenue_values) > 1 else None
-        operating, _ = _latest_annual(facts, _TAGS["operating_income"])
-        cfo, _ = _latest_annual(facts, _TAGS["cfo"])
-        capex, _ = _latest_annual(facts, _TAGS["capex"])
-        eps, _ = _latest_annual(facts, _TAGS["eps"])
-        debt_current, _ = _latest_annual(facts, _TAGS["debt_current"])
-        debt_noncurrent, _ = _latest_annual(facts, _TAGS["debt_noncurrent"])
-        cash, _ = _latest_annual(facts, _TAGS["cash"])
-        fcf = cfo - abs(capex) if cfo is not None and capex is not None else None
-        debt = (debt_current or 0) + (debt_noncurrent or 0) if debt_current is not None or debt_noncurrent is not None else None
-        growth = ((revenue / prior_revenue) - 1) * 100 if revenue is not None and prior_revenue and prior_revenue > 0 else None
-        operating_margin = operating / revenue * 100 if operating is not None and revenue and revenue > 0 else None
-        fcf_margin = fcf / revenue * 100 if fcf is not None and revenue and revenue > 0 else None
-        net_debt = debt - cash if debt is not None and cash is not None else None
-        if revenue is None and operating is None:
-            return None
-        return FundamentalSnapshot(symbol.upper(), fy, revenue, operating, fcf, eps, debt, cash, growth, operating_margin, fcf_margin, net_debt, "SEC Company Facts", "LIVE")
-    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+    except (HTTPError, URLError, TimeoutError, OSError, http.client.HTTPException, ValueError, TypeError, KeyError):
         return None
+    try:
+        return _snapshot_from_facts(symbol, facts)
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:
+        raise _StructuralMiss(str(exc)) from exc
+
+
+def _snapshot_from_facts(symbol: str, facts: dict[str, object]) -> FundamentalSnapshot:
+    revenue_values = _annual_values(facts, _TAGS["revenue"], prefer_larger_on_tie=True)
+    revenue = float(revenue_values[0]["val"]) if revenue_values else None
+    end = str(revenue_values[0]["end"]) if revenue_values else None
+    fy = int(end[:4]) if end else None
+    # Growth only against the period exactly one year earlier from the same tag.
+    prior_revenue = None
+    if len(revenue_values) > 1:
+        gap = _days(str(revenue_values[1]["end"]), end) if end else None
+        if gap is not None and 350 <= gap <= 380:
+            prior_revenue = float(revenue_values[1]["val"])
+    if end is None:
+        operating = cfo = capex = eps = diluted_shares = debt_current = debt_noncurrent = cash = None
+    else:
+        # Every metric must describe the same fiscal period as revenue.
+        operating = _value_at(facts, _TAGS["operating_income"], end)
+        cfo = _value_at(facts, _TAGS["cfo"], end)
+        capex = _value_at(facts, _TAGS["capex"], end)
+        eps = _value_at(facts, _TAGS["eps"], end)
+        diluted_shares = _value_at(facts, _TAGS["diluted_shares"], end)
+        debt_current = _value_at(facts, _TAGS["debt_current"], end)
+        debt_noncurrent = _value_at(facts, _TAGS["debt_noncurrent"], end)
+        cash = _value_at(facts, _TAGS["cash"], end)
+    shares_outstanding, shares_date = _latest_shares_outstanding(facts)
+    fcf = cfo - abs(capex) if cfo is not None and capex is not None else None
+    # A missing current portion counts as zero only when the noncurrent balance exists for the period.
+    debt = (debt_current or 0) + debt_noncurrent if debt_noncurrent is not None else None
+    growth = ((revenue / prior_revenue) - 1) * 100 if revenue is not None and prior_revenue and prior_revenue > 0 else None
+    operating_margin = operating / revenue * 100 if operating is not None and revenue and revenue > 0 else None
+    fcf_margin = fcf / revenue * 100 if fcf is not None and revenue and revenue > 0 else None
+    net_debt = debt - cash if debt is not None and cash is not None else None
+    if revenue is None:
+        raise ValueError("no us-gaap 10-K revenue facts")
+    return FundamentalSnapshot(symbol.upper(), fy, revenue, operating, fcf, eps, debt, cash, growth, operating_margin, fcf_margin, net_debt, "SEC Company Facts", "LIVE",
+                               eps_period_end=end if eps is not None else None, diluted_shares=diluted_shares,
+                               shares_outstanding=shares_outstanding, shares_outstanding_date=shares_date)
 
 
 def fundamentals_for_asset(asset: AssetSnapshot) -> FundamentalSnapshot:

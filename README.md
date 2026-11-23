@@ -29,6 +29,19 @@ The product is designed as an investment research desk rather than a blind tradi
 - **AI assistant:** asks are answered only from evidence the platform gathers, with citations you can click and check. Set `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`) to enable generated answers; without a key it shows the evidence only.
 - **Alerts and track record:** price/score/move alerts and journal review reminders; a daily job stores score snapshots so the platform can measure whether higher scores were followed by better returns.
 
+## Operating notes (Render)
+
+- **Free PostgreSQL expires.** Render's free database plan is time-limited; when it expires, accounts, holdings, journals and practice trades are lost. Check the expiry date on the database page in Render and upgrade the database plan (paid) before relying on the data. Settings → "Service status" in the app shows whether the database is reachable.
+- **Settings check.** The Settings page shows whether `ANTHROPIC_API_KEY`, `SEC_USER_AGENT` and `JOB_TOKEN` are set (never their values).
+- **Daily snapshots** are taken automatically on the first dashboard visit after 21:30 UTC on weekdays (`DASHBOARD_DAILY_SNAPSHOT=true` by default); the GitHub `daily-scan` workflow is optional.
+- **Accounts:** sign-up requires accepting the Terms, Privacy notice and Risk disclosure. These texts are **drafts and must be reviewed by a qualified lawyer before a public launch**. Users can export their data and delete their account from Settings. Logging out revokes the session token. Email addresses are not verified (no email provider is configured).
+- **Rate limits** apply to sign-in, sign-up and the assistant (per IP/email/user, in memory per server process).
+- After any suspected exposure, rotate `AUTH_SECRET` (signs everyone out) and `JOB_TOKEN` in Render → Environment.
+
+## Chart overlays
+
+Price charts can show a log-linear trend line (with a ±2σ channel when the fit is meaningful), 50/200-day moving averages, and support/resistance levels found from clustered swing highs/lows on closing prices. Each level shows its strength (number of touches) and distance from the last close. These describe past prices only; they are not forecasts or trading signals.
+
 ## Current stage — V1 + live market-data adapter
 
 The working vertical slice includes:

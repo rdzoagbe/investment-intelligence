@@ -9,7 +9,7 @@ client = TestClient(app)
 
 
 def signup(email: str) -> dict[str, str]:
-    r = client.post("/api/auth/register", json={"name": "User", "email": email, "password": "long-enough-1"})
+    r = client.post("/api/auth/register", json={"name": "User", "email": email, "password": "long-enough-1", "accept_terms": True})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 

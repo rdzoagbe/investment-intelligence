@@ -12,7 +12,7 @@ client = TestClient(app)
 
 
 def login(email="m@example.com"):
-    r = client.post("/api/auth/register", json={"name": "Member", "email": email, "password": "long-enough-1"})
+    r = client.post("/api/auth/register", json={"name": "Member", "email": email, "password": "long-enough-1", "accept_terms": True})
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 

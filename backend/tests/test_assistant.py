@@ -12,7 +12,7 @@ client = TestClient(app)
 
 
 def login(email="u@example.com"):
-    r = client.post("/api/auth/register", json={"name": "User", "email": email, "password": "long-enough-1"})
+    r = client.post("/api/auth/register", json={"name": "User", "email": email, "password": "long-enough-1", "accept_terms": True})
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
@@ -36,14 +36,16 @@ def test_personal_data_only_when_asked_and_only_own():
     ev_b = client.post("/api/assistant/ask", json={"question": "What is in my portfolio?"}, headers=b).json()["evidence"]
     assert not any("MSFT" in e["title"] for e in ev_b)
     ev_a = client.post("/api/assistant/ask", json={"question": "What is in my portfolio?"}, headers=a).json()["evidence"]
-    assert any(e["title"] == "Your holding MSFT" and e["status"] == "USER" for e in ev_a)
+    # Demo mode: the holding is valued from a DEMO quote, so it is labelled DEMO, not USER.
+    holding = next(e for e in ev_a if e["title"] == "Your holding MSFT")
+    assert holding["status"] == "DEMO" and holding["personal"] is True and "DEMO price" in holding["detail"]
     ev_general = client.post("/api/assistant/ask", json={"question": "Tell me about Microsoft"}, headers=a).json()["evidence"]
-    assert not any(e["status"] == "USER" for e in ev_general)
+    assert not any(e["status"] == "USER" or e["personal"] for e in ev_general)
 
 
 def fake_model(monkeypatch, text="", refused=False, raise_exc=None):
     calls = []
-    def complete(system, user):
+    def complete(system, user, budget_s=None):
         calls.append((system, user))
         if raise_exc:
             raise raise_exc
@@ -125,6 +127,7 @@ def test_anthropic_request_shape(monkeypatch):
     assert k["messages"] == [{"role": "user", "content": "USER"}]
     assert k["fallbacks"] == "default" and k["betas"] == ["server-side-fallback-2026-07-01"]
     assert k["output_config"] == {"effort": "high"} and "thinking" not in k
+    assert k["max_tokens"] == 16000
     assert out == {"text": "Answer [E1].", "model": "claude-opus-5-5", "refused": False, "truncated": False, "provider": "anthropic"}
     FakeAnthropic.stop = "refusal"
     assert llm_anthropic.complete("S", "U")["refused"] is True

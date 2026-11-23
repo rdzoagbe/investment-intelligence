@@ -94,12 +94,17 @@ def test_live_history_feeds_scanner_momentum_and_backtest(monkeypatch):
     monkeypatch.setenv("MARKET_DATA_MODE", "live")
     def fake(url, timeout=5.0):
         if "range=5d" in url:  # quote request
-            return {"chart": {"result": [{"meta": {"regularMarketPrice": 150.0, "previousClose": 148.0, "currency": "USD", "regularMarketTime": 1_700_000_000}}]}}
+            # Real range=5d shape: chartPreviousClose (close before the window), no previousClose, daily bars.
+            stamps = [1_699_885_800 + i * 86400 for i in range(5)]  # 14:30 UTC session opens
+            return {"chart": {"result": [{"meta": {"regularMarketPrice": 150.0, "chartPreviousClose": 140.0, "currency": "USD", "gmtoffset": -18000,
+                                                   "regularMarketTime": stamps[-1] + 6 * 3600 + 1800},
+                                          "timestamp": stamps, "indicators": {"quote": [{"close": [141.0, 143.0, 146.0, 148.0, 150.0]}]}}]}}
         return chart_payload([100 * (1.002 ** i) for i in range(600)])
     monkeypatch.setattr(market_data, "_fetch_json", fake)
     client = TestClient(app)
     item = next(x for x in client.get("/api/scanner?limit=100").json()["items"] if x["symbol"] == "MSFT")
     assert item["price_status"] == "LIVE"
+    assert item["change_pct"] == pytest.approx((150 / 148 - 1) * 100, abs=0.01)  # not the 5-day move vs 140
     assert item["market_inputs"]["momentum_source"].startswith("12-1 month")
     assert item["market_inputs"]["sentiment_source"] == "Seed value (not live)"
     gse = next(x for x in client.get("/api/scanner?limit=100").json()["items"] if x["symbol"] == "ACCESS")

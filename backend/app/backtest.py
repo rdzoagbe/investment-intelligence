@@ -80,8 +80,10 @@ def trend_backtest(history: PriceHistory, window: int = 200, transaction_cost_bp
     years = max(len(prices) - 1, 1) / 252
     def cagr(final: float) -> float:
         return round(((final / initial_cash) ** (1 / years) - 1) * 100, 2)
+    price_basis = ("Uses adjusted closes (splits and dividends)" if history.adjusted
+                   else "Uses closes adjusted for splits only (dividend-adjusted series unavailable), so returns exclude dividends")
     return {
-        "symbol": history.symbol, "currency": history.currency, "provider": history.provider, "status": "LIVE",
+        "symbol": history.symbol, "currency": history.currency, "provider": history.provider, "status": "LIVE", "adjusted": history.adjusted,
         "rule": f"Hold when the close is above its {window}-day average, otherwise cash. Costs {transaction_cost_bps} bps per trade.",
         "start": dates[0], "end": dates[-1], "dates": dates,
         "strategy": {"final_equity": strategy["final_equity"], "total_return_pct": strategy["total_return_pct"], "cagr_pct": cagr(strategy["final_equity"]),
@@ -89,6 +91,6 @@ def trend_backtest(history: PriceHistory, window: int = 200, transaction_cost_bp
                      "time_invested_pct": round(sum(1 for s in signal if s > 0) / len(signal) * 100, 1)},
         "buy_and_hold": {"final_equity": hold_curve[-1], "total_return_pct": round((hold_curve[-1] / initial_cash - 1) * 100, 2), "cagr_pct": cagr(hold_curve[-1]),
                          "max_drawdown_pct": round(_max_drawdown(hold_curve) * 100, 2), "equity_curve": hold_curve},
-        "caveats": ["Past performance does not predict future results.", "Uses adjusted closes; ignores taxes, slippage beyond the stated cost, and dividends received while in cash.",
+        "caveats": ["Past performance does not predict future results.", f"{price_basis}; ignores taxes, slippage beyond the stated cost, and dividends received while in cash.",
                     "The composite research score is not backtested because its fundamental inputs are not point-in-time."],
     }
