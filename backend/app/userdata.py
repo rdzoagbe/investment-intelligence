@@ -61,9 +61,17 @@ def _user_lock(user_id: int) -> threading.Lock:
         return _user_locks.setdefault(int(user_id), threading.Lock())
 
 
+class AccountDeleted(UserDataError):
+    """The account was deleted while this request was in flight; nothing is written."""
+
+
 @contextmanager
 def user_transaction(user_id: int) -> Iterator[Any]:
-    """One serialised transaction per user: process lock + DB lock, committed on exit."""
+    """One serialised transaction per user: process lock + DB lock, committed on exit.
+
+    Every per-user write goes through here. The account is re-checked INSIDE the lock, so a
+    request that authenticated before "delete my account" finished cannot recreate data for it.
+    """
     with _user_lock(user_id):
         with db.connection() as conn:
             if db.is_postgres():
@@ -72,6 +80,8 @@ def user_transaction(user_id: int) -> Iterator[Any]:
                 if conn.in_transaction:
                     conn.commit()
                 conn.execute("BEGIN IMMEDIATE")
+            if not conn.execute(db._sql("SELECT 1 FROM users WHERE id=?"), (user_id,)).fetchone():  # noqa: SLF001
+                raise AccountDeleted("This account no longer exists.")
             yield conn
 
 
@@ -126,9 +136,10 @@ def upsert_holding(user_id: int, symbol: str, quantity: float, average_cost: flo
     currency = str(quote_for_asset(asset).currency or asset.currency)
     # Single atomic upsert (SQLite >= 3.24 and PostgreSQL): a double-submitted form cannot race
     # the UNIQUE(user_id, symbol) constraint.
-    db.execute("INSERT INTO holdings(user_id,symbol,quantity,average_cost,currency,created_at) VALUES(?,?,?,?,?,?) "
-               "ON CONFLICT(user_id, symbol) DO UPDATE SET quantity=excluded.quantity, average_cost=excluded.average_cost, currency=excluded.currency",
-               (user_id, asset.symbol, quantity, average_cost, currency, int(time.time())))
+    with user_transaction(user_id) as conn:
+        tx_execute(conn, "INSERT INTO holdings(user_id,symbol,quantity,average_cost,currency,created_at) VALUES(?,?,?,?,?,?) "
+                   "ON CONFLICT(user_id, symbol) DO UPDATE SET quantity=excluded.quantity, average_cost=excluded.average_cost, currency=excluded.currency",
+                   (user_id, asset.symbol, quantity, average_cost, currency, int(time.time())))
     return {"symbol": asset.symbol, "quantity": quantity, "average_cost": average_cost, "currency": currency}
 
 

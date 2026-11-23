@@ -29,6 +29,15 @@ def run_threads(fn, n):
     return results, errors
 
 
+@pytest.fixture(autouse=True)
+def _users():
+    """These tests call userdata/monitoring directly with fixed ids; create those accounts
+    (per-user writes refuse to run for an account that does not exist)."""
+    for uid in range(1, 41):
+        db.execute("INSERT INTO users(id,name,email,password_hash,salt,created_at) VALUES(?,?,?,?,?,?)",
+                   (uid, f"User {uid}", f"user{uid}@example.com", "x", "x", int(time.time())))
+
+
 # ---------- userdata ----------
 def test_upsert_holding_is_atomic_under_concurrency():
     results, errors = run_threads(lambda: userdata.upsert_holding(1, "AAPL", 2, 150), 8)

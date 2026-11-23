@@ -68,8 +68,9 @@ def add_rule(user_id: int, symbol: str, kind: str, threshold: float) -> dict[str
         raise MonitoringError("Threshold must be positive (scores between 0 and 100).")
     if len(list_rules(user_id)) >= 50:
         raise MonitoringError("You can keep up to 50 alert rules.")
-    rule_id = db.insert("INSERT INTO alert_rules(user_id,symbol,kind,threshold,active,last_triggered_at,created_at) VALUES(?,?,?,?,?,?,?)",
-                        (user_id, asset.symbol, kind, threshold, 1, None, int(time.time())))
+    with userdata.user_transaction(user_id) as conn:
+        rule_id = userdata.tx_insert(conn, "INSERT INTO alert_rules(user_id,symbol,kind,threshold,active,last_triggered_at,created_at) VALUES(?,?,?,?,?,?,?)",
+                                     (user_id, asset.symbol, kind, threshold, 1, None, int(time.time())))
     return {"id": rule_id, "symbol": asset.symbol, "kind": kind, "threshold": threshold}
 
 
@@ -323,7 +324,11 @@ def user_track_record(user_id: int) -> dict[str, object]:
             p["qty"] -= q
             p["cost"] -= avg * q
     account = userdata.paper_account(user_id)
-    unrealized = sum(float(p["pnl"]) for p in account["positions"])  # type: ignore[index]
+    # Positions whose P&L cannot be computed (cost currency differs from today's listing and no
+    # rate is available) are reported separately instead of crashing or being counted as zero.
+    known = [float(p["pnl"]) for p in account["positions"] if p.get("pnl") is not None]  # type: ignore[union-attr]
+    pnl_unavailable = len(account["positions"]) - len(known)  # type: ignore[arg-type]
+    unrealized = sum(known)
     equity = float(account["cash"]) + sum(float(p["value"]) for p in account["positions"])  # type: ignore[index]
     demo_valued = int(account.get("demo_priced_positions", 0))  # type: ignore[arg-type]
     outcomes: dict[str, int] = defaultdict(int, userdata.journal_outcome_counts(user_id))
@@ -335,7 +340,7 @@ def user_track_record(user_id: int) -> dict[str, object]:
                   "realized_pnl": round(realized, 2), "unrealized_pnl": round(unrealized, 2), "closed_trades": len(closed),
                   "winning_trades": sum(1 for g in closed if g > 0), "win_rate_pct": round(sum(1 for g in closed if g > 0) / len(closed) * 100, 1) if closed else None,
                   "fills_on_demo_prices": demo_fills, "positions_valued_on_demo_prices": demo_valued,
-                  "demo_priced_positions": demo_valued},
+                  "demo_priced_positions": demo_valued, "positions_without_pnl": pnl_unavailable},
         "journal": {"entries": entries, "by_outcome": dict(outcomes), "judged": judged,
                     "thesis_hit_rate_pct": round(outcomes["THESIS_CONFIRMED"] / judged * 100, 1) if judged else None},
         "notes": ["Paper results are simulated and mix currencies without FX conversion.",

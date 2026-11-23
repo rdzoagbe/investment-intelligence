@@ -159,7 +159,20 @@ type JournalEntry = { id: number; symbol: string; decision: string; thesis: stri
 
 export function JournalPage({ mode, assets }: { mode: Mode; assets: AssetOption[] }) {
   const gate = needsAccount(mode, "The investment journal");
-  const j = useLoad<{ entries: JournalEntry[]; outcomes: string[] }>(gate ? null : "/api/me/journal");
+  const PAGE = 200;
+  const j = useLoad<{ entries: JournalEntry[]; outcomes: string[] }>(gate ? null : `/api/me/journal?limit=${PAGE}`);
+  // Older pages fetched with "Load older entries"; cleared whenever the first page reloads.
+  const [older, setOlder] = useState<{ entries: JournalEntry[]; more: boolean; loading: boolean; error: string }>({ entries: [], more: true, loading: false, error: "" });
+  useEffect(() => { setOlder({ entries: [], more: true, loading: false, error: "" }); }, [j.data]);
+  const loadOlder = async () => {
+    setOlder(o => ({ ...o, loading: true, error: "" }));
+    try {
+      const page = await api<{ entries: JournalEntry[] }>(`/api/me/journal?limit=${PAGE}&offset=${PAGE + older.entries.length}`);
+      setOlder(o => ({ entries: [...o.entries, ...page.entries], more: page.entries.length === PAGE, loading: false, error: "" }));
+    } catch (e) { setOlder(o => ({ ...o, loading: false, error: describeError(e) })); }
+  };
+  const entries = [...(j.data?.entries ?? []), ...older.entries];
+  const mayHaveMore = (j.data?.entries.length ?? 0) === PAGE && older.more;
   const [msg, setMsg] = useState("");
   const [outcomeErr, setOutcomeErr] = useState<{ id: number; text: string } | null>(null);
   if (gate) return gate;
@@ -174,16 +187,18 @@ export function JournalPage({ mode, assets }: { mode: Mode; assets: AssetOption[
       <JournalForm symbol={assets[0]?.symbol ?? ""} assets={assets} onDone={text => { setMsg(text); j.reload(); }} />
       {msg && <p className="ok-text" role="status">{msg}</p>}
     </section>
-    <section className="card pad"><Header title={`Entries (${j.data?.entries.length ?? 0})`} />
+    <section className="card pad"><Header title={`Entries (${entries.length}${mayHaveMore ? "+" : ""})`} />
       {j.error && <p className="muted">{j.error}</p>}
       {j.data?.entries.length === 0 && <p className="muted">No entries yet.</p>}
-      <div className="entries">{j.data?.entries.map(e => <article key={e.id} className={`entry ${e.review_on && e.review_on <= today && e.outcome === "OPEN" ? "due" : ""}`}>
+      <div className="entries">{entries.map(e => <article key={e.id} className={`entry ${e.review_on && e.review_on <= today && e.outcome === "OPEN" ? "due" : ""}`}>
         <div className="row-between"><b>{e.decision} · {e.symbol}</b><span className="tiny">{when(e.created_at)}</span></div>
         <p className="small pre">{e.thesis}</p>
         <p className="tiny">At decision: {money(e.evidence.price, e.evidence.currency)} <span className={`badge ${statusCls(e.evidence.price_status)}`}>{e.evidence.price_status}</span> · score {e.evidence.score} · fundamentals: {e.evidence.fundamentals_source}{e.review_on ? ` · review on ${e.review_on}${e.review_on <= today && e.outcome === "OPEN" ? " (due)" : ""}` : ""}</p>
         <label className="inline">Outcome <select value={e.outcome} onChange={ev => setOutcome(e.id, ev.target.value)}>{(j.data?.outcomes ?? []).map(o => <option key={o} value={o}>{o.replace(/_/g, " ").toLowerCase()}</option>)}</select></label>
         {outcomeErr?.id === e.id && <p className="error" role="alert">{outcomeErr.text}</p>}
       </article>)}</div>
+      {mayHaveMore && <div className="row"><button className="btn" disabled={older.loading} onClick={loadOlder}>{older.loading ? "Loading…" : "Load older entries"}</button></div>}
+      {older.error && <p className="error" role="alert">Could not load older entries: {older.error}</p>}
     </section>
   </>;
 }

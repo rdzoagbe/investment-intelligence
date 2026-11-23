@@ -89,6 +89,12 @@ class PasswordConfirm(BaseModel):
 DB_UNAVAILABLE = "The database is temporarily unavailable. Please try again shortly."
 
 
+@app.exception_handler(userdata.AccountDeleted)
+def _account_deleted(_request: Request, exc: userdata.AccountDeleted) -> JSONResponse:
+    # The account was deleted mid-request: behave like an expired session, write nothing.
+    return JSONResponse({"detail": str(exc)}, status_code=401)
+
+
 @app.get("/api/health")
 def health():
     # Render's health check: a lost or expired database must show up here, not only on login.

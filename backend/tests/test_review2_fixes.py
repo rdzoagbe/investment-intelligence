@@ -110,3 +110,24 @@ def test_assistant_reservation_is_serialised(monkeypatch):
     for t in threads: t.start()
     for t in threads: t.join()
     assert sum(1 for r in results if r is not None) == 3
+
+
+def test_writes_after_account_deletion_are_refused():
+    r = client.post("/api/auth/register", json={"name": "Gone", "email": "gone@example.com", "password": "long-enough-1", "accept_terms": True}).json()
+    uid = r["user"]["id"]
+    userdata.delete_user_data(uid, delete_account=True)
+    for call in (lambda: userdata.upsert_holding(uid, "MSFT", 1, 100), lambda: userdata.paper_order(uid, "MSFT", "BUY", 1),
+                 lambda: monitoring.add_rule(uid, "MSFT", "SCORE_ABOVE", 10), lambda: userdata.add_journal(uid, "MSFT", "WATCH", "long enough thesis", None)):
+        with pytest.raises(userdata.AccountDeleted):
+            call()
+    for table in ("holdings", "paper_orders", "alert_rules", "journal_entries"):
+        assert db.fetch_one(f"SELECT COUNT(*) AS n FROM {table} WHERE user_id=?", (uid,))["n"] == 0
+
+
+def test_track_record_survives_positions_without_pnl(monkeypatch):
+    r = client.post("/api/auth/register", json={"name": "Track", "email": "track@example.com", "password": "long-enough-1", "accept_terms": True}).json()
+    uid, h = r["user"]["id"], {"Authorization": f"Bearer {r['access_token']}"}
+    db.insert("INSERT INTO paper_orders(user_id,symbol,side,quantity,fill_price,price_status,created_at) VALUES(?,?,?,?,?,?,?)", (uid, "ASML", "BUY", 1, 700.0, "LIVE", int(time.time())))
+    monkeypatch.setattr(userdata, "fx_rate", lambda b, q: {"rate": None, "status": "UNAVAILABLE", "source": None})
+    body = client.get("/api/me/track-record", headers=h)
+    assert body.status_code == 200 and body.json()["paper"]["positions_without_pnl"] == 1

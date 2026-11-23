@@ -327,8 +327,9 @@ def ask(question: str, user_id: int) -> dict[str, object]:
     if reservation is not None:
         db.execute("UPDATE assistant_queries SET response=?, provider=? WHERE id=?", (json.dumps(result), stored_provider, reservation))
     else:
-        db.insert("INSERT INTO assistant_queries(user_id,question,response,provider,created_at) VALUES(?,?,?,?,?)",
-                  (user_id, question, json.dumps(result), stored_provider, int(time.time())))
+        with userdata.user_transaction(user_id) as conn:
+            userdata.tx_insert(conn, "INSERT INTO assistant_queries(user_id,question,response,provider,created_at) VALUES(?,?,?,?,?)",
+                               (user_id, question, json.dumps(result), stored_provider, int(time.time())))
     return result
 
 
