@@ -29,8 +29,18 @@ services:
       # Shared secret for /api/jobs/daily-scan (the daily-scan GitHub workflow sends it).
       - key: JOB_TOKEN
         generateValue: true
+      # Optional: ceiling on assistant questions across ALL users per day (in-process counter).
+      - key: ASSISTANT_GLOBAL_DAILY_LIMIT
+        value: "500"
 
 databases:
+  # WARNING: Render's FREE PostgreSQL plan EXPIRES about 30 days after creation. After a
+  # short grace period the database is DELETED, together with every account, holding,
+  # journal entry, paper order, alert and track-record snapshot. Before relying on this
+  # deployment, upgrade to a paid plan (for example `plan: basic-256mb`) or plan to export
+  # data (users: Settings > Export my data; operator: pg_dump) and re-create the database.
+  # /api/health returns 503 and /api/status reports "database": {"ok": false} when the
+  # database is unreachable, so Render's health check shows the outage.
   - name: investment-intelligence-db
     plan: free
     region: frankfurt

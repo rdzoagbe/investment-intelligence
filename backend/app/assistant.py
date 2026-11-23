@@ -85,7 +85,7 @@ def _match_assets(question: str) -> list[AssetSnapshot]:
     for order, asset in enumerate(ASSETS):
         positions: list[int] = []
         sym = re.escape(asset.symbol)
-        ticker_re = rf"(?<![A-Za-z0-9.\-]){sym}(?![A-Za-z0-9])(?!\.[A-Za-z])(?!-[A-Za-z])"
+        ticker_re = rf"(?<![A-Za-z0-9.]){sym}(?![A-Za-z0-9])(?!\.[A-Za-z])"
         flags = 0 if asset.symbol in CASE_SENSITIVE_TICKERS else re.I
         positions.append(_first(ticker_re, folded, flags))  # type: ignore[arg-type]
         name = _fold(asset.name)
@@ -94,7 +94,9 @@ def _match_assets(question: str) -> list[AssetSnapshot]:
         if full_only:
             positions.append(_first(rf"(?<![\w-]){re.escape(full_only)}(?![\w-])", folded, re.I))  # type: ignore[arg-type]
         else:
-            positions.append(_first(rf"(?<![\w-]){re.escape(name)}(?![\w-])", folded, re.I))  # type: ignore[arg-type]
+            # Single-word names that are ordinary words (Visa, Apple, SAP...) must be capitalised as written.
+            single_ordinary = " " not in name and (first.lower() in AMBIGUOUS_FIRST_WORDS or name.upper() in CASE_SENSITIVE_TICKERS)
+            positions.append(_first(rf"(?<![\w-]){re.escape(name)}(?![\w-])", folded, 0 if single_ordinary else re.I))  # type: ignore[arg-type]
             if first.lower() in AMBIGUOUS_FIRST_WORDS:
                 positions.append(_first(rf"(?<![\w-]){re.escape(first)}(?![\w-])", folded))  # type: ignore[arg-type]
             elif len(first) > 3:
@@ -116,64 +118,146 @@ def _mentioned_assets(question: str) -> list[AssetSnapshot]:
 def _asset_evidence(asset: AssetSnapshot, add) -> None:
     s = score_asset(asset, quote_dict(quote_for_asset(asset)))
     status = "LIVE" if s["price_status"] == "LIVE" else "DEMO"
-    add(f"{asset.symbol} price", f"{asset.name} ({asset.symbol}) last price {s['price']} {s['currency']}, day change {s['change_pct']}%.", str(s["price_source"]), status)
-    add(f"{asset.symbol} model score", f"Composite score {s['score']}/100 from fixed weights. Factor scores: {json.dumps(s['breakdown'])}.", "Platform scoring model", "RULE_BASED")
+    change = f"{s['change_pct']}%" if s.get("change_pct") is not None else "not available"
+    add(f"{asset.symbol} price", f"{asset.name} ({asset.symbol}) last price {s['price']} {s['currency']}, day change {change}.", str(s["price_source"]), status)
+    add(f"{asset.symbol} model score", f"Composite score {s['score']}/100 from fixed weights ({s.get('band') or 'band n/a'}). Factor scores: {json.dumps(s['breakdown'])}."
+        + ("" if status == "LIVE" else " The price input is DEMO data, so the score is illustrative."), "Platform scoring model", "RULE_BASED")
     fi = s["fundamental_inputs"]
-    add(f"{asset.symbol} fundamentals", f"Revenue growth {fi['revenue_growth_pct']}%, operating margin {fi['operating_margin_pct']}%, free-cash-flow margin {fi['free_cash_flow_margin_pct']}%.", str(fi["source"]), "LIVE" if fi["status"] == "LIVE" else "SEED")
+    fi_status = {"LIVE": "LIVE", "PARTIAL": "PARTIAL"}.get(str(fi.get("status")), "SEED")
+    field_sources = fi.get("field_sources")
+    sources_note = f" Field sources: {json.dumps(field_sources)}." if isinstance(field_sources, dict) and fi_status == "PARTIAL" else ""
+    add(f"{asset.symbol} fundamentals", f"Revenue growth {fi['revenue_growth_pct']}%, operating margin {fi['operating_margin_pct']}%, free-cash-flow margin {fi['free_cash_flow_margin_pct']}%.{sources_note}", str(fi["source"]), fi_status)
     mi = s["market_inputs"]
     add(f"{asset.symbol} valuation input", f"P/E {mi['pe_ratio']}.", str(mi["pe_source"]), "LIVE" if str(mi["pe_source"]).startswith("Live") else "SEED")
     if mi.get("history"):
         h = mi["history"]
-        add(f"{asset.symbol} price history", f"1y return {h['return_1y_pct']}%, 12-1 month momentum {h['momentum_12_1_pct']}%, price vs 200-day average {h['vs_200d_average_pct']}%, 1y volatility {h['volatility_1y_pct']}%, 1y max drawdown {h['max_drawdown_1y_pct']}%.", "Daily adjusted closes", "LIVE")
+        add(f"{asset.symbol} price history", f"1y return {h['return_1y_pct']}%, 12-1 month momentum {h['momentum_12_1_pct']}%, price vs 200-day average {h['vs_200d_average_pct']}%, 1y volatility {h['volatility_1y_pct']}%, 1y max drawdown {h['max_drawdown_1y_pct']}%.", "Daily closes from the price-history provider", "LIVE")
     add(f"{asset.symbol} curated notes", f"Catalysts noted: {', '.join(asset.catalysts)}. Risks noted: {', '.join(asset.risks)}.", "Curated seed notes (not live research)", "SEED")
+
+
+PERSONAL_WORDS = r"\b(my|portfolio|holding|holdings|position|positions|journal|exposure)\b"
 
 
 def gather_evidence(question: str, user_id: int | None) -> list[Evidence]:
     items: list[Evidence] = []
 
-    def add(title: str, detail: str, source: str, status: str) -> None:
-        items.append(Evidence(f"E{len(items) + 1}", title, detail, source, status))
+    def add(title: str, detail: str, source: str, status: str, personal: bool = False) -> None:
+        items.append(Evidence(f"E{len(items) + 1}", title, detail, source, status, personal))
 
     lower = question.lower()
     assets = _mentioned_assets(question)
     for asset in assets:
         _asset_evidence(asset, add)
-    if user_id is not None and re.search(r"\b(my|portfolio|holding|holdings|position|positions|journal|exposure)\b", lower):
+    if user_id is not None and re.search(PERSONAL_WORDS, lower):
         p = userdata.portfolio(user_id)
         if p["holdings"]:
             for h in p["holdings"]:
-                add(f"Your holding {h['symbol']}", f"{h['quantity']} shares at average cost {h['average_cost']} {h['currency']}; value {h['value']} {h['currency']}; P&L {h['pnl']} ({h['pnl_pct']}%); {h['weight_in_currency_pct']}% of your {h['currency']} holdings.", f"Your portfolio, priced from {h['price_source']}", "USER")
+                live = h.get("price_status") == "LIVE"
+                valuation = "" if live else " Valued at a DEMO price, so value and P&L are illustrative only."
+                add(f"Your holding {h['symbol']}", f"{h['quantity']} shares at average cost {h['average_cost']} {h['currency']}; value {h['value']} {h['currency']}; P&L {h['pnl']} ({h['pnl_pct']}%); {h['weight_in_currency_pct']}% of your {h['currency']} holdings.{valuation}",
+                    f"Your portfolio, priced from {h['price_source']}", "USER" if live else "DEMO", personal=True)
             for flag in p["concentration_flags"]:
-                add("Concentration flag", flag, "Portfolio rules (>35% in one holding)", "RULE_BASED")
+                add("Concentration flag", flag, "Portfolio rules (>35% in one holding)", "RULE_BASED", personal=True)
         else:
-            add("Your holdings", "You have not recorded any holdings.", "Your portfolio", "USER")
+            add("Your holdings", "You have not recorded any holdings.", "Your portfolio", "USER", personal=True)
         for entry in userdata.list_journal(user_id)[:5]:
-            add(f"Your journal: {entry['decision']} {entry['symbol']}", f"Thesis: {entry['thesis'][:400]} Outcome so far: {entry['outcome']}. Review date: {entry['review_on'] or 'none'}.", "Your investment journal", "USER")
+            add(f"Your journal: {entry['decision']} {entry['symbol']}", f"Thesis: {entry['thesis'][:400]} Outcome so far: {entry['outcome']}. Review date: {entry['review_on'] or 'none'}.", "Your investment journal", "USER", personal=True)
     if re.search(r"\b(macro|rates?|inflation|regime|fx|currency|economy)\b", lower):
         m = macro_snapshot()
-        add("Macro regime", f"Regime label {m['regime']}. " + " ".join(f"{d['name']}: {d['note']}" for d in m["drivers"]), "Rule-based macro labels (not forecasts)", "RULE_BASED")
+        add("Macro context notes", "Static reminders written into the tool, not computed from current data and not an assessment: " + " ".join(f"{d['name']}: {d['note']}" for d in m["drivers"]),
+            "Static context notes (not computed from data)", "STATIC")
     if not assets and not items:
         top = scanner(5)
-        add("Top-scoring assets", "; ".join(f"{t['name']} ({t['symbol']}) score {t['score']}" for t in top) + ".", "Platform scoring model over the research universe", "RULE_BASED")
+        all_live = all(t.get("price_status") == "LIVE" for t in top)
+        note = "" if all_live else " Some scores use DEMO prices, so the ranking is illustrative."
+        add("Top-scoring assets", "; ".join(f"{t['name']} ({t['symbol']}) score {t['score']}" + ("" if t.get("price_status") == "LIVE" else " [DEMO price]") for t in top) + "." + note,
+            "Platform scoring model over the research universe", "RULE_BASED" if all_live else "DEMO")
     return items
 
 
 # ---------- Answering ----------
+_CITATION_GROUP = re.compile(r"\[\s*([Ee]\s*\d+(?:\s*(?:[,;]|-|–|—|to|and)\s*[Ee]?\s*\d+)*)\s*\]")
+
+
+def _expand_group(body: str) -> list[str]:
+    ids: list[str] = []
+    for part in re.split(r"\s*[,;]\s*|\s+and\s+", body):
+        part = part.strip()
+        if not part:
+            continue
+        rng = re.fullmatch(r"[Ee]\s*(\d+)\s*(?:-|–|—|to)\s*[Ee]?\s*(\d+)", part)
+        if rng:
+            a, b = int(rng.group(1)), int(rng.group(2))
+            if a <= b and b - a <= 50:
+                ids.extend(f"E{n}" for n in range(a, b + 1))
+            else:
+                ids.extend([f"E{a}", f"E{b}"])
+            continue
+        single = re.fullmatch(r"[Ee]?\s*(\d+)", part)
+        if single:
+            ids.append(f"E{int(single.group(1))}")
+    return ids
+
+
 def _check_citations(text: str, ids: set[str]) -> tuple[str, list[str], list[str]]:
-    cited = re.findall(r"\[(E\d+)\]", text)
-    invalid = sorted({c for c in cited if c not in ids})
-    for bad in invalid:
-        text = text.replace(f"[{bad}]", "")
-    valid = sorted({c for c in cited if c in ids}, key=lambda x: int(x[1:]))
-    return text, valid, invalid
+    """Normalise citation groups ([E1, E2], [E1-E3], [e2], [E1; E3]) to [E1][E2] form,
+    drop ids that were not supplied, and report valid and invalid ids."""
+    valid: set[str] = set()
+    invalid: set[str] = set()
+
+    def rewrite(m: re.Match[str]) -> str:
+        cited = _expand_group(m.group(1))
+        keep: list[str] = []
+        for c in cited:
+            if c in ids:
+                valid.add(c)
+                if c not in keep:
+                    keep.append(c)
+            else:
+                invalid.add(c)
+        return "".join(f"[{c}]" for c in keep)
+
+    text = _CITATION_GROUP.sub(rewrite, text)
+    text = re.sub(r"[ \t]+([.,;:])", r"\1", text)
+    order = lambda x: int(x[1:])  # noqa: E731
+    return text, sorted(valid, key=order), sorted(invalid, key=order)
 
 
-def _daily_count(user_id: int) -> int:
-    row = db.fetch_one("SELECT COUNT(*) AS n FROM assistant_queries WHERE user_id=? AND provider<>'none' AND created_at>=?", (user_id, int(time.time()) - 86400))
+def _daily_count(user_id: int, up_to_id: int | None = None) -> int:
+    """Generated answers (and in-flight reservations) in the last 24 hours."""
+    since = int(time.time()) - 86400
+    if up_to_id is None:
+        row = db.fetch_one("SELECT COUNT(*) AS n FROM assistant_queries WHERE user_id=? AND provider<>'none' AND created_at>=?", (user_id, since))
+    else:
+        row = db.fetch_one("SELECT COUNT(*) AS n FROM assistant_queries WHERE user_id=? AND provider<>'none' AND created_at>=? AND id<=?", (user_id, since, up_to_id))
     return int(row["n"]) if row else 0
 
 
+def _reserve(user_id: int, question: str, provider: str, limit: int) -> int | None:
+    """Reserve one generated answer before calling the paid provider.
+
+    A pending row is written first, then the rows up to and including it are counted. When
+    several requests race, the ones whose row falls beyond the limit release their
+    reservation, so at most `limit` paid calls start per 24 hours, across processes too.
+    """
+    if _daily_count(user_id) >= limit:
+        return None
+    pending = json.dumps({"question": question, "answer": None, "provider": provider, "pending": True, "evidence": [], "citations": [],
+                          "notice": "This answer was still being generated (or the request was interrupted)."})
+    row_id = db.insert("INSERT INTO assistant_queries(user_id,question,response,provider,created_at) VALUES(?,?,?,?,?)",
+                       (user_id, question, pending, provider, int(time.time())))
+    if _daily_count(user_id, row_id) > limit:
+        db.execute("DELETE FROM assistant_queries WHERE id=?", (row_id,))
+        return None
+    return row_id
+
+
+PRIVACY_NOTICE = ("Your question and the evidence above, including your own holdings and journal entries, were sent to the "
+                  "configured AI provider ({provider}) to generate this answer.")
+
+
 def ask(question: str, user_id: int) -> dict[str, object]:
+    started = time.monotonic()
     question = question.strip()
     if not 3 <= len(question) <= 1000:
         raise AssistantError("Ask a question of 3 to 1000 characters.")
@@ -182,36 +266,67 @@ def ask(question: str, user_id: int) -> dict[str, object]:
     provider = llm.provider()
     result: dict[str, object] = {"question": question, "evidence": [asdict(e) for e in evidence], "provider": provider,
                                  "disclaimer": "Research assistance from the tool's own data. Not investment advice."}
+    notices: list[str] = []
+    named = _match_assets(question)
+    if len(named) > MAX_SYMBOLS:
+        dropped = ", ".join(a.symbol for a in named[MAX_SYMBOLS:])
+        result["omitted_assets"] = [a.symbol for a in named[MAX_SYMBOLS:]]
+        notices.append(f"Only the first {MAX_SYMBOLS} assets named were researched; not included: {dropped}.")
     limit = int(os.getenv("ASSISTANT_DAILY_LIMIT", "20"))
-    if provider != "none" and _daily_count(user_id) >= limit:
-        provider = "none"
-        result["provider"] = "none"
-        result["notice"] = f"Daily limit of {limit} generated answers reached; showing the evidence only."
+    reservation: int | None = None
+    if provider != "none":
+        reservation = _reserve(user_id, question, provider, limit)
+        if reservation is None:
+            provider = "none"
+            result["provider"] = "none"
+            notices.append(f"Daily limit of {limit} generated answers reached; showing the evidence only.")
+    counted = False  # whether this request should count toward the daily limit
     if provider == "none":
-        result.setdefault("notice", "No AI model is configured, so no answer is generated. The evidence the tool found is listed below.")
+        if not notices or not any("Daily limit" in n for n in notices):
+            notices.append("No AI model is configured, so no answer is generated. The evidence the tool found is listed below.")
         result.update({"answer": None, "grounded": None, "citations": []})
     else:
-        evidence_block = "\n".join(f"[{e.id}] {e.title} | status: {e.status} | source: {e.source}\n{e.detail}" for e in evidence)
-        prompt = f"<evidence>\n{evidence_block}\n</evidence>\n\n<question>\n{question}\n</question>"
-        try:
-            out = llm.complete(SYSTEM_PROMPT, prompt)
-        except Exception as exc:  # noqa: BLE001 - provider errors must not break the page; reported to the user
-            result.update({"answer": None, "grounded": None, "citations": [], "notice": f"The AI provider could not answer ({type(exc).__name__}). The evidence is listed below."})
+        budget = llm.REQUEST_BUDGET_S - 5 - (time.monotonic() - started)
+        if budget < 10:
+            result.update({"answer": None, "grounded": None, "citations": []})
+            notices.append("Gathering the evidence took too long to also generate an answer in time. The evidence is listed below.")
         else:
-            if out.get("refused"):
-                result.update({"answer": None, "grounded": None, "citations": [], "notice": "The model declined this request."})
+            evidence_block = "\n".join(f"[{e.id}] {e.title} | status: {e.status} | source: {e.source}\n{e.detail}" for e in evidence)
+            prompt = f"<evidence>\n{evidence_block}\n</evidence>\n\n<question>\n{question}\n</question>"
+            if any(e.personal for e in evidence):
+                result["privacy_notice"] = PRIVACY_NOTICE.format(provider={"anthropic": "Anthropic", "openai": "OpenAI"}.get(provider, provider))
+            try:
+                out = llm.complete(SYSTEM_PROMPT, prompt, budget_s=budget)
+            except Exception as exc:  # noqa: BLE001 - provider errors must not break the page; reported to the user
+                result.update({"answer": None, "grounded": None, "citations": []})
+                notices.append(f"The AI provider could not answer ({type(exc).__name__}). The evidence is listed below.")
             else:
-                text, valid, invalid = _check_citations(str(out["text"]), ids)
-                result.update({"answer": text, "model": out.get("model"), "citations": valid, "removed_citations": invalid,
-                               "grounded": bool(valid) and not invalid})
-                if not valid:
-                    result["notice"] = "This answer cites none of the evidence, so treat it as unverified."
-                elif invalid:
-                    result["notice"] = f"Removed citations to evidence that does not exist: {', '.join(invalid)}."
-                if out.get("truncated"):
-                    result["notice"] = (str(result.get("notice", "")) + " The answer was cut off at the length limit.").strip()
-    db.insert("INSERT INTO assistant_queries(user_id,question,response,provider,created_at) VALUES(?,?,?,?,?)",
-              (user_id, question, json.dumps(result), str(result["provider"]), int(time.time())))
+                counted = True
+                if out.get("refused"):
+                    result.update({"answer": None, "grounded": None, "citations": []})
+                    notices.append("The model declined this request.")
+                else:
+                    text, valid, invalid = _check_citations(str(out["text"]), ids)
+                    result.update({"answer": text or None, "model": out.get("model"), "citations": valid, "removed_citations": invalid,
+                                   "grounded": bool(valid) and not invalid, "truncated": bool(out.get("truncated"))})
+                    if out.get("truncated") and not text:
+                        notices.append("The model ran out of output length before writing an answer. The evidence is listed below.")
+                    else:
+                        if not valid:
+                            notices.append("This answer cites none of the evidence, so treat it as unverified.")
+                        elif invalid:
+                            notices.append(f"Removed citations to evidence that does not exist: {', '.join(invalid)}.")
+                        if out.get("truncated"):
+                            notices.append("The answer was cut off at the length limit.")
+    if notices:
+        result["notice"] = " ".join(notices)
+    # Failed provider calls do not use up the daily allowance (the reservation is released).
+    stored_provider = str(result["provider"]) if counted or reservation is None else "none"
+    if reservation is not None:
+        db.execute("UPDATE assistant_queries SET response=?, provider=? WHERE id=?", (json.dumps(result), stored_provider, reservation))
+    else:
+        db.insert("INSERT INTO assistant_queries(user_id,question,response,provider,created_at) VALUES(?,?,?,?,?)",
+                  (user_id, question, json.dumps(result), stored_provider, int(time.time())))
     return result
 
 
