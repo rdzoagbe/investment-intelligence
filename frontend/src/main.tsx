@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Bell, BookOpen, BrainCircuit, Sparkles, Trophy, CircleDollarSign, Database, Home, LineChart, Newspaper, Search, Settings as SettingsIcon, ShieldAlert, Users, WalletCards, X } from "lucide-react";
 import demoSnapshot from "./demo-snapshot.json";
@@ -125,11 +125,14 @@ function AssetModal({ symbol, mode, onClose }: { symbol: string; mode: Mode; onC
   const card = useRef<HTMLDivElement>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
   const titleId = `asset-modal-title-${symbol.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // Runs once per opening (not on every parent render) so focus is not stolen back to the close button.
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     closeBtn.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+      if (e.key === "Escape") { e.preventDefault(); closeRef.current(); return; }
       if (e.key !== "Tab" || !card.current) return;
       const items = [...card.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el => el.offsetParent !== null || el === document.activeElement);
       if (!items.length) return;
@@ -140,7 +143,7 @@ function AssetModal({ symbol, mode, onClose }: { symbol: string; mode: Mode; onC
     };
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("keydown", onKey); if (opener && document.contains(opener)) opener.focus(); };
-  }, [onClose]);
+  }, []);
   return <div className="modal" onClick={onClose}>
     <div className="modal-card" ref={card} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={e => e.stopPropagation()}>
       <button ref={closeBtn} className="modal-close" aria-label="Close asset details" onClick={onClose}><X aria-hidden="true" /></button>
@@ -185,23 +188,26 @@ function PageBody({ page, mode, universe, filtered, search, markets, dashError, 
 }
 
 // ---------- Command Center ----------
-function CommandCenter({ mode, scan, markets, onOpen }: { mode: Mode; scan: ScanItem[]; markets: MarketRow[] | null; onOpen: (s: string) => void }) {
-  const live = scan.filter(a => a.price_status === "LIVE").length;
-  const top = [...scan].sort((a, b) => b.score - a.score);
+function CommandCenter({ mode, universe, rows, search, markets, dashError, onOpen }: { mode: Mode; universe: ScanItem[]; rows: ScanItem[]; search: string; markets: MarketRow[] | null; dashError?: string; onOpen: (s: string) => void }) {
+  // KPIs describe the whole research universe; only the ranked table follows the top-bar filter.
+  const live = universe.filter(a => a.price_status === "LIVE").length;
+  const best = [...universe].sort((a, b) => b.score - a.score)[0];
+  const top = [...rows].sort((a, b) => b.score - a.score);
+  const filtering = search.trim() !== "";
   return <>
     <section className="kpis">
-      <Kpi title="Research universe" value={`${scan.length} assets`} sub="US, European and Ghana equities" />
-      <Kpi title="Live price coverage" value={`${live} / ${scan.length}`} sub={live ? "Quotes from Yahoo Finance" : "No live quotes in this view"} />
-      <Kpi title="Highest model score" value={top[0] ? `${top[0].score}` : "—"} sub={top[0] ? `${top[0].name} (${top[0].symbol})` : ""} />
+      <Kpi title="Research universe" value={`${universe.length} assets`} sub="US, European and Ghana equities" />
+      <Kpi title="Live price coverage" value={`${live} / ${universe.length}`} sub={live ? "Quotes from Yahoo Finance" : "No live quotes in this view"} />
+      <Kpi title="Highest model score" value={best ? `${best.score}` : "—"} sub={best ? `${best.name} (${best.symbol})` : ""} />
       <Kpi title="Data mode" value={mode.kind === "api" ? "API" : "DEMO"} sub={mode.kind === "api" ? "Server-side calculations" : "Bundled illustrative snapshot"} />
     </section>
     <section className="card pad">
       <Header title="Market benchmarks" eyebrow="LIVE WHEN AVAILABLE · NO FALLBACK VALUES" />
-      {markets ? <div className="ticker-row">{markets.map(m => <div className="ticker" key={m.symbol}><span>{m.name}</span><strong>{m.value == null ? "Unavailable" : num(m.value)}</strong><em className={(m.change_pct ?? 0) < 0 ? "down" : "up"}>{pct(m.change_pct)}</em></div>)}</div>
-        : <p className="muted">Benchmark quotes are only shown when the API retrieves them live. None are displayed in demo mode.</p>}
+      {markets ? <div className="ticker-row">{markets.map(m => <div className="ticker" key={m.symbol}><span>{m.name}</span><strong>{m.value == null ? "Unavailable" : num(m.value)}</strong><em className={cls(m.change_pct)}>{pct(m.change_pct)}</em></div>)}</div>
+        : <p className="muted">{mode.kind === "api" ? `Benchmarks unavailable${dashError ? `: ${dashError}` : " right now"}. No fallback values are shown.` : "Benchmark quotes are only shown when the API retrieves them live. None are displayed in demo mode."}</p>}
     </section>
     <section className="card pad">
-      <Header title="Highest-scoring assets" eyebrow="RANKED BY THE TRANSPARENT FACTOR MODEL" />
+      <Header title="Highest-scoring assets" eyebrow={filtering ? `FILTERED: ${rows.length} OF ${universe.length} ASSETS MATCH "${search.trim().toUpperCase()}"` : "RANKED BY THE TRANSPARENT FACTOR MODEL"} />
       <ScanTable rows={top.slice(0, 8)} onOpen={onOpen} />
     </section>
     {top[0] && <section className="card pad"><AssetDetail symbol={top[0].symbol} mode={mode} /></section>}
@@ -212,45 +218,55 @@ function ScanTable({ rows, onOpen }: { rows: ScanItem[]; onOpen: (s: string) => 
   if (!rows.length) return <p className="muted">No assets match this filter.</p>;
   return <div className="table-wrap"><table className="table">
     <thead><tr><th>Asset</th><th>Market</th><th className="r">Price</th><th className="r">Day</th><th className="r">Score</th><th>Band</th><th>Price data</th></tr></thead>
-    <tbody>{rows.map(a => { const b = band(a.score); return <tr key={a.symbol} onClick={() => onOpen(a.symbol)} tabIndex={0} onKeyDown={e => e.key === "Enter" && onOpen(a.symbol)}>
+    <tbody>{rows.map(a => { const b = band(a.score); return <tr key={a.symbol} onClick={() => onOpen(a.symbol)} tabIndex={0} aria-label={`Open ${a.name} (${a.symbol}) details`} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(a.symbol); } }}>
       <td><b>{a.name}</b><small>{a.symbol}</small></td><td>{a.market}</td><td className="r">{money(a.price, a.currency)}</td>
-      <td className={`r ${(a.change_pct ?? 0) < 0 ? "down" : "up"}`}>{pct(a.change_pct)}</td><td className="r"><b>{a.score.toFixed(1)}</b></td>
-      <td><span className={`badge ${b.cls}`}>{b.label}</span></td><td><span className={`badge ${statusCls(a.price_status)}`}>{a.price_status}</span></td></tr>; })}</tbody>
+      <td className={`r ${cls(a.change_pct)}`}>{pct(a.change_pct)}</td><td className="r"><b>{a.score.toFixed(1)}</b></td>
+      <td><span className={`badge ${b.cls}`}>{a.band ?? b.label}</span></td><td><span className={`badge ${statusCls(a.price_status)}`}>{a.price_status}</span></td></tr>; })}</tbody>
   </table></div>;
 }
 
 // ---------- Asset detail ----------
 function useAnalysis(symbol: string, mode: Mode) {
-  const [state, setState] = useState<{ data?: Analysis; error?: string }>({});
+  const [state, setState] = useState<{ symbol?: string; data?: Analysis; error?: string }>({});
   useEffect(() => {
     setState({});
-    if (mode.kind !== "api") { const hit = snapshot.analyses[symbol]; setState(hit ? { data: hit.analysis } : { error: "Not in the demo dataset." }); return; }
-    api<Analysis>(`/api/assets/${encodeURIComponent(symbol)}/analysis`).then(data => setState({ data })).catch(e => setState({ error: String(e.message || e) }));
+    if (mode.kind !== "api") { const hit = snapshot.analyses[symbol]; setState(hit ? { symbol, data: hit.analysis } : { symbol, error: "Not in the demo dataset." }); return; }
+    // Abort on symbol change so a slower response for a previous asset can never replace this one.
+    const ctrl = new AbortController();
+    api<Analysis>(`/api/assets/${encodeURIComponent(symbol)}/analysis`, { signal: ctrl.signal })
+      .then(data => { if (!ctrl.signal.aborted) setState({ symbol, data }); })
+      .catch(e => { if (!ctrl.signal.aborted && !isAbort(e)) setState({ symbol, error: describeError(e) }); });
+    return () => ctrl.abort();
   }, [symbol, mode.kind]);
-  return state;
+  return state.symbol === symbol ? state : {};
 }
 
-function AssetDetail({ symbol, mode }: { symbol: string; mode: Mode }) {
+const FIELD_LABELS: Record<string, string> = { revenue_growth_pct: "Revenue growth", operating_margin_pct: "Operating margin", free_cash_flow_margin_pct: "FCF margin" };
+
+function AssetDetail({ symbol, mode, titleId }: { symbol: string; mode: Mode; titleId?: string }) {
   const { data: a, error } = useAnalysis(symbol, mode);
-  if (error) return <p className="muted">Analysis unavailable: {error}</p>;
-  if (!a) return <p className="muted">Loading analysis…</p>;
+  if (error) return <p className="muted" id={titleId}>Analysis unavailable for {symbol}: {error}</p>;
+  if (!a) return <p className="muted" id={titleId}>Loading analysis for {symbol}…</p>;
   const b = band(a.score);
+  const fieldSources = a.fundamental_inputs.field_sources;
   return <div className="detail">
     <div className="detail-head">
-      <div><span className="eyebrow">ASSET RESEARCH</span><h2>{a.name} <small>({a.symbol})</small></h2><p className="muted">{a.market} · {a.currency} · macro sensitivity {a.macro_sensitivity}</p></div>
-      <div className="price"><strong>{money(a.price, a.currency)}</strong><em className={(a.change_pct ?? 0) < 0 ? "down" : "up"}>{pct(a.change_pct)}</em><span className={`badge ${statusCls(a.price_status)}`}>{a.price_status}</span><small>{a.price_source}</small></div>
+      <div><span className="eyebrow">ASSET RESEARCH</span><h2 id={titleId}>{a.name} <small>({a.symbol})</small></h2><p className="muted">{a.market} · {a.currency} · macro sensitivity {a.macro_sensitivity}</p></div>
+      <div className="price"><strong>{money(a.price, a.currency)}</strong><em className={cls(a.change_pct)}>{a.change_pct == null ? "Day change unavailable" : pct(a.change_pct)}</em><span className={`badge ${statusCls(a.price_status)}`}>{a.price_status}</span><small>{a.price_source}</small></div>
     </div>
     <div className="detail-grid">
       <div className="box">
         <h4>Model score</h4>
         <div className="score"><b>{a.score.toFixed(1)}</b><span>/100</span></div>
-        <span className={`badge ${b.cls}`}>{b.label}</span>
-        <div className="bars">{Object.entries(a.breakdown).map(([k, v]) => <div key={k}><span>{k.replace("_", " ")}</span><i><em style={{ width: `${v}%` }} /></i><b>{v}</b></div>)}</div>
+        <span className={`badge ${b.cls}`}>{a.band ?? b.label}</span>
+        <div className="bars">{Object.entries(a.breakdown).map(([k, v]) => <div key={k}><span>{k.replace(/_/g, " ")}</span><i><em style={{ width: `${v}%` }} /></i><b>{v}</b></div>)}</div>
         <p className="tiny">Weights: fundamental 24%, growth 18%, cash flow 16%, valuation 14%, balance sheet 12%, momentum 9%, sentiment 7%.</p>
         <ul className="inputs">
           <li><span>Fundamentals</span><b>{a.fundamental_inputs.source}</b> <span className={`badge ${statusCls(a.fundamental_inputs.status)}`}>{a.fundamental_inputs.status}</span></li>
+          {fieldSources && Object.entries(fieldSources).map(([k, v]) => <li key={k} className="sub"><span>{FIELD_LABELS[k] ?? k.replace(/_/g, " ")}</span><b>{v}</b></li>)}
           {a.market_inputs && <><li><span>P/E {num(a.market_inputs.pe_ratio, 1)}</span><b>{a.market_inputs.pe_source}</b></li>
-          <li><span>Momentum</span><b>{a.market_inputs.momentum_source}</b></li><li><span>Sentiment</span><b>{a.market_inputs.sentiment_source}</b></li></>}
+          <li><span>Momentum</span><b>{a.market_inputs.momentum_source}</b></li><li><span>Sentiment</span><b>{a.market_inputs.sentiment_source}</b></li>
+          {a.market_inputs.balance_sheet_source && <li><span>Balance sheet</span><b>{a.market_inputs.balance_sheet_source}</b></li>}</>}
         </ul>
       </div>
       <div className="box">
@@ -262,7 +278,7 @@ function AssetDetail({ symbol, mode }: { symbol: string; mode: Mode }) {
       <div className="box">
         <h4>Valuation scenarios</h4>
         <table className="table compact"><thead><tr><th>Case</th><th className="r">Growth</th><th className="r">Multiple</th><th className="r">Value</th><th className="r">vs price</th></tr></thead>
-          <tbody>{a.valuation.scenarios.map(s => <tr key={s.label}><td>{s.label}</td><td className="r">{s.growth_pct}%</td><td className="r">{s.multiple}x</td><td className="r">{money(s.fair_value, a.currency)}</td><td className={`r ${s.upside_pct < 0 ? "down" : "up"}`}>{pct(s.upside_pct)}</td></tr>)}</tbody></table>
+          <tbody>{a.valuation.scenarios.map(s => <tr key={s.label}><td>{s.label}</td><td className="r">{s.growth_pct}%</td><td className="r">{s.multiple}x</td><td className="r">{money(s.fair_value, a.currency)}</td><td className={`r ${cls(s.upside_pct)}`}>{pct(s.upside_pct)}</td></tr>)}</tbody></table>
         <p className="tiny">Simple scenario scaffold from the stated growth and P/E inputs. It is not a price target.</p>
         <h4>Position-sizing illustration</h4>
         <p className="small">On a {money(a.risk.model_account_value, a.currency)} model account risking 1% with an {a.risk.stop_loss_pct}% stop: about {num(a.risk.shares, 2)} shares ({num(a.risk.position_weight_pct, 1)}% of the account).</p>
@@ -275,7 +291,7 @@ function AssetDetail({ symbol, mode }: { symbol: string; mode: Mode }) {
 }
 
 // ---------- Pages ----------
-function Scanner({ scan, onOpen }: { scan: ScanItem[]; onOpen: (s: string) => void }) {
+function Scanner({ scan, total, onOpen }: { scan: ScanItem[]; total: number; onOpen: (s: string) => void }) {
   const [market, setMarket] = useState(""); const [min, setMin] = useState(0);
   const markets = [...new Set(scan.map(a => a.market))].sort();
   const rows = scan.filter(a => (!market || a.market === market) && a.score >= min).sort((a, b) => b.score - a.score);
@@ -283,30 +299,39 @@ function Scanner({ scan, onOpen }: { scan: ScanItem[]; onOpen: (s: string) => vo
     <div className="filters">
       <label>Market <select value={market} onChange={e => setMarket(e.target.value)}><option value="">All markets</option>{markets.map(m => <option key={m}>{m}</option>)}</select></label>
       <label>Minimum score <input type="number" min={0} max={100} value={min} onChange={e => setMin(Number(e.target.value) || 0)} /></label>
-      <span className="muted">{rows.length} of {scan.length} assets</span>
+      <span className="muted">{rows.length} of {total} assets</span>
     </div>
     <ScanTable rows={rows} onOpen={onOpen} />
   </section>;
 }
 
 function CommitteePage({ mode, scan }: { mode: Mode; scan: ScanItem[] }) {
-  const [symbol, setSymbol] = useState(scan[0]?.symbol ?? "MSFT");
-  const [c, setC] = useState<{ data?: Committee; error?: string }>({});
+  const [picked, setSymbol] = useState(scan[0]?.symbol ?? "");
+  // Never fall back to a hidden default symbol: use the selection only if it is in the list.
+  const symbol = scan.some(a => a.symbol === picked) ? picked : (scan[0]?.symbol ?? "");
+  const [c, setC] = useState<{ symbol?: string; data?: Committee; error?: string }>({});
   useEffect(() => {
     setC({});
-    if (mode.kind !== "api") { const hit = snapshot.analyses[symbol]; setC(hit ? { data: hit.committee } : { error: "Not in the demo dataset." }); return; }
-    api<Committee>(`/api/assets/${encodeURIComponent(symbol)}/committee`).then(data => setC({ data })).catch(e => setC({ error: String(e.message || e) }));
+    if (!symbol) return;
+    if (mode.kind !== "api") { const hit = snapshot.analyses[symbol]; setC(hit ? { symbol, data: hit.committee } : { symbol, error: "Not in the demo dataset." }); return; }
+    const ctrl = new AbortController();
+    api<Committee>(`/api/assets/${encodeURIComponent(symbol)}/committee`, { signal: ctrl.signal })
+      .then(data => { if (!ctrl.signal.aborted) setC({ symbol, data }); })
+      .catch(e => { if (!ctrl.signal.aborted && !isAbort(e)) setC({ symbol, error: describeError(e) }); });
+    return () => ctrl.abort();
   }, [symbol, mode.kind]);
+  const cur = c.symbol === symbol ? c : {};
+  if (!scan.length) return <section className="card pad muted">No assets are available to review.</section>;
   return <section className="card pad">
     <div className="filters"><label>Asset <select value={symbol} onChange={e => setSymbol(e.target.value)}>{[...scan].sort((a, b) => a.name.localeCompare(b.name)).map(a => <option key={a.symbol} value={a.symbol}>{a.name} ({a.symbol})</option>)}</select></label></div>
-    {c.error && <p className="muted">Committee packet unavailable: {c.error}</p>}
-    {!c.data && !c.error && <p className="muted">Loading…</p>}
-    {c.data && <div className="committee">
-      <div className="kpis three"><Kpi title="Model score" value={c.data.score.toFixed(1)} sub={band(c.data.score).label} /><Kpi title="Signal strength (heuristic)" value={`${c.data.confidence}`} sub="Distance of the score from neutral, not a probability" /><Kpi title="Decision state" value="Human decision" sub="No automatic execution" /></div>
-      {c.data.analysis ? <div className="box"><h4>AI synthesis ({c.data.model_provider})</h4><p className="small pre">{c.data.analysis}</p></div> :
-        <div className="two"><div className="box"><h4>Arguments for</h4><ul className="list good">{c.data.bull_case.map(x => <li key={x}>{x}</li>)}</ul></div><div className="box"><h4>Arguments against</h4><ul className="list bad">{c.data.bear_case.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
-      <p className="question">Challenge: “{c.data.decision_question}”</p>
-      <p className="tiny">Generated {new Date(c.data.timestamp).toLocaleString("en-GB")}. {c.data.analysis ? "Model-written text is a synthesis of the supplied facts only." : "Rule-based packet; no AI model is configured."}</p>
+    {cur.error && <p className="muted">Committee packet unavailable: {cur.error}</p>}
+    {!cur.data && !cur.error && <p className="muted">Loading…</p>}
+    {cur.data && <div className="committee">
+      <div className="kpis three"><Kpi title="Model score" value={cur.data.score.toFixed(1)} sub={band(cur.data.score).label} /><Kpi title="Signal strength (heuristic)" value={`${cur.data.confidence}`} sub="Distance of the score from neutral, not a probability" /><Kpi title="Decision state" value="Human decision" sub="No automatic execution" /></div>
+      {cur.data.analysis ? <div className="box"><h4>AI synthesis ({cur.data.model_provider})</h4><p className="small pre">{cur.data.analysis}</p></div> :
+        <div className="two"><div className="box"><h4>Arguments for</h4><ul className="list good">{cur.data.bull_case.map(x => <li key={x}>{x}</li>)}</ul></div><div className="box"><h4>Arguments against</h4><ul className="list bad">{cur.data.bear_case.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
+      <p className="question">Challenge: “{cur.data.decision_question}”</p>
+      <p className="tiny">Generated {new Date(cur.data.timestamp).toLocaleString("en-GB")}. {cur.data.analysis ? "Model-written text is a synthesis of the supplied facts only." : "Rule-based packet."}</p>
     </div>}
   </section>;
 }
@@ -315,7 +340,12 @@ function useEndpoint<T>(path: string, mode: Mode, demo?: T) {
   const [s, setS] = useState<{ data?: T; error?: string }>({});
   useEffect(() => {
     if (mode.kind !== "api") { setS(demo ? { data: demo } : { error: "Requires the API server (not available on the static demo)." }); return; }
-    api<T>(path).then(data => setS({ data })).catch(e => setS({ error: String(e.message || e) }));
+    const ctrl = new AbortController();
+    setS({});
+    api<T>(path, { signal: ctrl.signal })
+      .then(data => { if (!ctrl.signal.aborted) setS({ data }); })
+      .catch(e => { if (!ctrl.signal.aborted && !isAbort(e)) setS({ error: describeError(e) }); });
+    return () => ctrl.abort();
   }, [path, mode.kind]);
   return s;
 }
@@ -344,12 +374,59 @@ function IntelligencePage({ mode, macro }: { mode: Mode; macro: Macro | null }) 
   </>;
 }
 
-function SettingsPage({ mode }: { mode: Mode }) {
+const CONFIG_LABELS: Record<string, string> = { anthropic_api_key: "AI assistant key (ANTHROPIC_API_KEY)", sec_user_agent: "SEC EDGAR identity (SEC_USER_AGENT)", job_token: "Daily job token (JOB_TOKEN)" };
+
+function SettingsPage({ mode, onNavigate }: { mode: Mode; onNavigate: (p: Page) => void }) {
   const s = useEndpoint<Status>("/api/status", mode);
-  return <section className="card pad">
-    <p className="small">API base: <code>{API_BASE || (STATIC_HOST ? "none (static site)" : "same origin")}</code></p>
-    {s.error && <p className="muted">{s.error}</p>}
-    {s.data && <table className="table compact"><tbody>{Object.entries(s.data).map(([k, v]) => <tr key={k}><td><b>{k.replace("_", " ")}</b></td><td>{Object.entries(v).map(([kk, vv]) => `${kk}: ${String(vv)}`).join(" · ")}</td></tr>)}</tbody></table>}
+  const db = s.data?.database as { ok?: boolean; engine?: string } | undefined;
+  const config = s.data?.config as Record<string, string> | undefined;
+  const rest = s.data ? Object.entries(s.data).filter(([k]) => k !== "database" && k !== "config") : [];
+  return <>
+    {mode.kind === "api" && signedIn() && <AccountData />}
+    <section className="card pad"><Header title="Server status" eyebrow="NO SECRET VALUES ARE EVER SHOWN" />
+      <p className="small">API base: <code>{API_BASE || (STATIC_HOST ? "none (static site)" : "same origin")}</code></p>
+      {s.error && <p className="muted">{s.error}</p>}
+      {db && <p className="small">Database: <span className={`badge ${db.ok ? "st-live" : "st-unavail"}`}>{db.ok ? "REACHABLE" : "UNREACHABLE"}</span> {db.engine ?? "unknown engine"}</p>}
+      {config && <ul className="inputs">{Object.entries(config).map(([k, v]) => <li key={k}><span>{CONFIG_LABELS[k] ?? k}</span><span className={`badge ${v === "set" ? "st-live" : "st-off"}`}>{v.toUpperCase()}</span></li>)}</ul>}
+      {rest.length > 0 && <table className="table compact"><tbody>{rest.map(([k, v]) => <tr key={k}><td><b>{k.replace(/_/g, " ")}</b></td><td>{v && typeof v === "object" ? Object.entries(v).map(([kk, vv]) => `${kk}: ${String(vv)}`).join(" · ") : String(v)}</td></tr>)}</tbody></table>}
+    </section>
+    <section className="card pad"><Header title="Legal documents" eyebrow="DRAFTS · NOT LEGAL ADVICE" />
+      <div className="row"><button className="btn small" onClick={() => onNavigate("Terms")}>Terms</button><button className="btn small" onClick={() => onNavigate("Privacy")}>Privacy notice</button><button className="btn small" onClick={() => onNavigate("Risk disclosure")}>Risk disclosure</button></div>
+    </section>
+  </>;
+}
+
+/** Export and delete personal data (GDPR-style rights described in the privacy notice). */
+function AccountData() {
+  const [exportState, setExportState] = useState<{ busy?: boolean; msg?: string; err?: string }>({});
+  const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(false);
+  const [del, setDel] = useState<{ busy?: boolean; err?: string }>({});
+  const doExport = async () => {
+    setExportState({ busy: true });
+    try { await download("/api/me/export", "investment-intelligence-export.json"); setExportState({ msg: "Your data export has been downloaded." }); }
+    catch (e) { setExportState({ err: describeError(e) }); }
+  };
+  const doDelete = async (e: FormEvent) => {
+    e.preventDefault(); setDel({ busy: true });
+    try {
+      await api("/api/me/account", { method: "DELETE", body: JSON.stringify({ password }) });
+      clearSession();
+      location.reload();
+    } catch (e2) { setDel({ err: describeError(e2) }); }
+  };
+  return <section className="card pad"><Header title="My data" eyebrow="PRIVATE TO YOUR ACCOUNT" />
+    <div className="row"><button className="btn" onClick={doExport} disabled={exportState.busy}>{exportState.busy ? "Preparing…" : "Export my data"}</button><span className="tiny">Downloads your account, holdings, journal, paper orders, alerts and assistant history as JSON.</span></div>
+    {exportState.msg && <p className="ok-text">{exportState.msg}</p>}{exportState.err && <p className="error">{exportState.err}</p>}
+    <form className="form box danger" onSubmit={doDelete}>
+      <h4>Delete my account</h4>
+      <p className="small">This permanently deletes your account and all of its data. It cannot be undone. Export your data first if you want a copy.</p>
+      <div className="filters">
+        <label>Confirm with your password <input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></label>
+        <label className="inline"><input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} required /> I understand this cannot be undone</label>
+      </div>
+      {del.err && <p className="error">{del.err}</p>}
+      <div className="row"><button className="btn danger" disabled={del.busy || !confirm || !password}>{del.busy ? "Deleting…" : "Delete my account"}</button></div>
+    </form>
   </section>;
 }
 
@@ -361,10 +438,11 @@ function NotBuilt({ title, text }: { title: string; text: string }) {
 function SourcesPanel({ mode, scan }: { mode: Mode; scan: ScanItem[] }) {
   const live = scan.filter(a => a.price_status === "LIVE").length;
   const sec = scan.filter(a => a.fundamental_inputs.status === "LIVE").length;
+  const partial = scan.filter(a => a.fundamental_inputs.status === "PARTIAL").length;
   return <div className="side card pad"><Header title="Data sources" />
     <ul className="sources">
-      <li><span className={`dot ${live ? "st-live" : "st-demo"}`} />Prices: {live ? `${live} live (Yahoo Finance)` : "demo values"}</li>
-      <li><span className={`dot ${sec ? "st-live" : "st-demo"}`} />Fundamentals: {sec ? `${sec} from SEC EDGAR` : "demo values"}</li>
+      <li><span className={`dot ${live === scan.length && live ? "st-live" : live ? "st-partial" : "st-demo"}`} />Prices: {live ? `${live} of ${scan.length} live (Yahoo Finance)` : "demo values"}</li>
+      <li><span className={`dot ${sec ? "st-live" : partial ? "st-partial" : "st-demo"}`} />Fundamentals: {sec || partial ? `${sec} fully${partial ? `, ${partial} partly` : ""} from SEC EDGAR` : "demo values"}</li>
       <li><span className={`dot ${scan.some(a => a.market_inputs?.momentum_source.startsWith("12-1")) ? "st-live" : "st-demo"}`} />Momentum: {scan.some(a => a.market_inputs?.momentum_source.startsWith("12-1")) ? "from live price history" : "seed values"}</li>
       <li><span className="dot st-demo" />Sentiment: seed values (no live source yet)</li>
       <li><span className="dot st-off" />Ghana (GSE): no live feed yet</li>

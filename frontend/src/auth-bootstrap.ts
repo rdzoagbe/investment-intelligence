@@ -1,5 +1,5 @@
 import "./auth.css";
-import { API_BASE, AUTH_CHANGED_EVENT, SESSION_EXPIRED_EVENT, STATIC_HOST, TOKEN_KEY as tokenKey, USER_KEY as userKey, clearSession } from "./lib";
+import { API_BASE, AUTH_CHANGED_EVENT, SESSION_EXPIRED_EVENT, STATIC_HOST, TOKEN_KEY as tokenKey, USER_KEY as userKey, clearSession, serverUnavailable } from "./lib";
 import { LEGAL, LEGAL_DRAFT_NOTICE, type LegalKey } from "./legal-pages";
 
 type User = { id: number; name: string; email: string; created_at: number };
@@ -20,11 +20,6 @@ function api(path: string, options: RequestInit = {}, timeoutMs = 60000) {
 /** Parse a response body as JSON; null when it is not JSON (e.g. an HTML error page from a proxy or static host). */
 async function jsonOrNull(response: Response): Promise<Record<string, unknown> | null> {
   try { const text = await response.text(); const v = JSON.parse(text); return v && typeof v === "object" ? v as Record<string, unknown> : null; } catch { return null; }
-}
-
-/** True when the response means "no usable account API here" rather than "your input was wrong". */
-export function serverUnavailable(status: number, body: Record<string, unknown> | null) {
-  return status >= 500 || status === 404 || status === 405 || body === null || (status >= 400 && typeof body.detail !== "string" && !Array.isArray(body.detail));
 }
 
 function detailText(body: Record<string, unknown> | null, fallback: string) {

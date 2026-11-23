@@ -192,3 +192,25 @@ details summary{cursor:pointer;color:#9fc3e6;font-size:13px;margin:6px 0}
 .events{list-style:none;padding:0;margin:0;display:grid;gap:6px;font-size:13px}
 .events li{padding:8px 10px;border:1px solid #143e63;border-radius:7px}
 .events li.unread{border-color:#1d5f9c;background:#0a2745}
+
+/* Launch readiness: status badges, legal pages, account data, accessibility */
+.st-partial{background:#16304f;color:#9fd0ff;border:1px dashed #3a7cc0}
+.st-unavail{background:#3a1d24;color:#ffb3bc;border:1px solid #7d3340}
+.st-user{background:#24304a;color:#c9d6ff}
+.dot.st-partial{border:0;background:#3a7cc0}
+.dot.st-unavail{border:0;background:#c4505f}
+.legal-links{display:block;margin-top:6px}
+.linklike{border:0;background:transparent;color:#6cb8ff;cursor:pointer;padding:0;font:inherit;text-decoration:underline}
+.legal h2{font-size:20px;margin:6px 0 10px}
+.legal p{max-width:760px}
+.privacy-note{font-size:12px;color:#c9d6ff;background:#16243d;border:1px solid #2d4670;border-radius:6px;padding:6px 9px;margin:6px 0}
+.btn.danger{background:#5a1f2a;border-color:#a33a4c;color:#ffd6dc}
+.btn.danger:hover{background:#73283a}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.box.danger{border-color:#7d3340;margin-top:16px}
+.converted{margin-bottom:14px}
+.converted .kpis{margin-bottom:8px}
+.inputs li.sub{padding-left:12px}
+.filters label.inline{display:flex}
+.nav-item:focus-visible,.btn:focus-visible,.seg button:focus-visible,.linklike:focus-visible,.modal-close:focus-visible,.table tbody tr:focus-visible{outline:2px solid #58adff;outline-offset:2px}
+.searchbox:focus-within{border-color:#2c94ff}

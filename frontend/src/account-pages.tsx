@@ -1,18 +1,36 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { api, cls, Header, Kpi, LineChartSvg, money, Notice, num, pct, signedIn, statusCls, when, type Mode } from "./lib";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { api, cls, describeError, Header, isAbort, Kpi, LineChartSvg, localToday, money, Notice, num, pct, signedIn, statusCls, when, type Mode } from "./lib";
 
 type AssetOption = { symbol: string; name: string };
 type Stats = { volatility_1y_pct: number | null; momentum_12_1_pct: number | null; return_1y_pct: number | null; vs_200d_average_pct: number | null; max_drawdown_1y_pct: number | null; observations: number };
 
-function useLoad<T>(path: string | null, deps: unknown[] = []) {
-  const [s, setS] = useState<{ data?: T; error?: string; loading: boolean }>({ loading: true });
-  const reload = () => {
-    if (!path) return;
-    setS(prev => ({ ...prev, loading: true }));
-    api<T>(path).then(data => setS({ data, loading: false })).catch(e => setS({ error: e.message, loading: false }));
-  };
-  useEffect(reload, [path, ...deps]);
-  return { ...s, reload };
+/** Load JSON for `path`. Only the latest request may update state: older responses (a previous asset,
+ *  range or a reload overtaken by a newer one) are aborted and ignored. Data is tagged with its path so a
+ *  stale result is never shown under a new selection. */
+function useLoad<T>(path: string | null) {
+  const [s, setS] = useState<{ path?: string; data?: T; error?: string; loading: boolean }>({ loading: true });
+  const latest = useRef<{ id: number; ctrl?: AbortController }>({ id: 0 });
+  const reload = useCallback(() => {
+    latest.current.ctrl?.abort();
+    const id = ++latest.current.id;
+    if (!path) { setS({ loading: false }); return; }
+    const ctrl = new AbortController();
+    latest.current.ctrl = ctrl;
+    setS(prev => ({ ...(prev.path === path ? prev : {}), path, loading: true }));
+    api<T>(path, { signal: ctrl.signal })
+      .then(data => { if (id === latest.current.id) setS({ path, data, loading: false }); })
+      .catch(e => { if (id === latest.current.id && !isAbort(e)) setS({ path, error: describeError(e), loading: false }); });
+  }, [path]);
+  useEffect(() => { reload(); return () => { latest.current.ctrl?.abort(); latest.current.id++; }; }, [reload]);
+  const current = s.path === path ? s : { loading: !!path };
+  return { ...current, reload };
+}
+
+/** Keep a selected symbol valid for the current asset list: never fall back to a hidden default. */
+function useSymbol(assets: AssetOption[], preferred?: string) {
+  const [picked, setPicked] = useState(preferred ?? assets[0]?.symbol ?? "");
+  const valid = assets.some(a => a.symbol === picked) ? picked : (assets[0]?.symbol ?? "");
+  return [valid, setPicked] as const;
 }
 
 function needsAccount(mode: Mode, what: string) {
@@ -28,10 +46,10 @@ function AssetSelect({ assets, value, onChange }: { assets: AssetOption[]; value
 // ---------- Price history panel (asset detail) ----------
 export function PriceHistoryPanel({ symbol, mode }: { symbol: string; mode: Mode }) {
   const [range, setRange] = useState("1y");
-  const h = useLoad<{ points: { date: string; close: number }[]; currency: string; provider: string; statistics: Stats }>(mode.kind === "api" ? `/api/assets/${encodeURIComponent(symbol)}/history?range=${range}` : null, [range]);
+  const h = useLoad<{ points: { date: string; close: number }[]; currency: string; provider: string; adjusted?: boolean; statistics: Stats }>(mode.kind === "api" ? `/api/assets/${encodeURIComponent(symbol)}/history?range=${range}` : null);
   if (mode.kind !== "api") return <p className="tiny">Price history is only shown when the API retrieves it live. None is displayed in demo mode.</p>;
   return <div className="box span-all">
-    <div className="row-between"><h4>Price history (adjusted close)</h4><div className="seg">{["1y", "2y", "5y"].map(r => <button key={r} className={r === range ? "on" : ""} onClick={() => setRange(r)}>{r}</button>)}</div></div>
+    <div className="row-between"><h4>Price history{h.data ? (h.data.adjusted ? " (adjusted close)" : " (close, not adjusted for dividends)") : ""}</h4><div className="seg" role="group" aria-label="History range">{["1y", "2y", "5y"].map(r => <button key={r} className={r === range ? "on" : ""} aria-pressed={r === range} onClick={() => setRange(r)}>{r}</button>)}</div></div>
     {h.loading && <p className="muted">Loading history…</p>}
     {h.error && <p className="muted">History unavailable: {h.error}</p>}
     {h.data && !h.loading && <>
@@ -43,7 +61,7 @@ export function PriceHistoryPanel({ symbol, mode }: { symbol: string; mode: Mode
         <span>1y volatility <b>{num(h.data.statistics.volatility_1y_pct)}%</b></span>
         <span>1y max drawdown <b className="down">{num(h.data.statistics.max_drawdown_1y_pct)}%</b></span>
       </div>
-      <p className="tiny">{h.data.provider} · {h.data.points.length} daily closes · {h.data.currency}</p>
+      <p className="tiny">{h.data.provider} · {h.data.points.length} daily closes · {h.data.currency}{h.data.adjusted === false ? " · not adjusted for dividends or splits" : ""}</p>
     </>}
   </div>;
 }
@@ -53,19 +71,22 @@ export function SaveToJournal({ symbol, mode }: { symbol: string; mode: Mode }) 
   const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState("");
   if (mode.kind !== "api" || !signedIn()) return null;
-  if (!open) return <button className="btn" onClick={() => { setOpen(true); setMsg(""); }}>Record a decision in my journal</button>;
-  return <JournalForm symbol={symbol} onDone={text => { setMsg(text); setOpen(false); }} onCancel={() => setOpen(false)} message={msg} />;
+  if (!open) return <><button className="btn" onClick={() => { setOpen(true); setMsg(""); }}>Record a decision in my journal</button>{msg && <p className="ok-text" role="status">{msg}</p>}</>;
+  return <JournalForm symbol={symbol} onDone={text => { setMsg(text); setOpen(false); }} onCancel={() => setOpen(false)} />;
 }
 
-function JournalForm({ symbol, assets, onDone, onCancel, message }: { symbol: string; assets?: AssetOption[]; onDone: (msg: string) => void; onCancel?: () => void; message?: string }) {
-  const [sym, setSym] = useState(symbol);
+function JournalForm({ symbol, assets, onDone, onCancel }: { symbol: string; assets?: AssetOption[]; onDone: (msg: string) => void; onCancel?: () => void }) {
+  const [picked, setSym] = useState(symbol);
+  const sym = !assets || assets.some(a => a.symbol === picked) ? picked : (assets[0]?.symbol ?? "");
   const [decision, setDecision] = useState("WATCH");
   const [thesis, setThesis] = useState("");
   const [review, setReview] = useState("");
-  const [err, setErr] = useState(message || "");
+  const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true); setErr("");
+    e.preventDefault(); setErr("");
+    if (!sym) { setErr("Choose an asset first."); return; }
+    setBusy(true);
     try {
       await api("/api/me/journal", { method: "POST", body: JSON.stringify({ symbol: sym, decision, thesis, review_on: review || null }) });
       setThesis(""); setReview(""); onDone(`Saved ${decision} on ${sym} with the current evidence snapshot.`);
@@ -79,7 +100,7 @@ function JournalForm({ symbol, assets, onDone, onCancel, message }: { symbol: st
     </div>
     <label className="full">Thesis: why, what evidence, what would prove you wrong<textarea required minLength={10} maxLength={4000} rows={4} value={thesis} onChange={e => setThesis(e.target.value)} /></label>
     {err && <p className="error">{err}</p>}
-    <div className="row"><button className="btn primary" disabled={busy}>{busy ? "Saving…" : "Save entry"}</button>{onCancel && <button type="button" className="btn" onClick={onCancel}>Cancel</button>}</div>
+    <div className="row"><button className="btn primary" disabled={busy || !sym}>{busy ? "Saving…" : "Save entry"}</button>{onCancel && <button type="button" className="btn" onClick={onCancel}>Cancel</button>}</div>
     <p className="tiny">The current price, score and data sources are stored with the entry so you can review the decision later against what you knew at the time. Journal entries are private notes, not orders.</p>
   </form>;
 }
@@ -90,15 +111,18 @@ export function JournalPage({ mode, assets }: { mode: Mode; assets: AssetOption[
   const gate = needsAccount(mode, "The investment journal");
   const j = useLoad<{ entries: JournalEntry[]; outcomes: string[] }>(gate ? null : "/api/me/journal");
   const [msg, setMsg] = useState("");
+  const [outcomeErr, setOutcomeErr] = useState<{ id: number; text: string } | null>(null);
   if (gate) return gate;
   const setOutcome = async (id: number, outcome: string) => {
-    try { await api(`/api/me/journal/${id}`, { method: "PATCH", body: JSON.stringify({ outcome }) }); j.reload(); } catch (e) { setMsg((e as Error).message); }
+    try { await api(`/api/me/journal/${id}`, { method: "PATCH", body: JSON.stringify({ outcome }) }); setOutcomeErr(null); j.reload(); }
+    catch (e) { setOutcomeErr({ id, text: `Outcome not saved: ${describeError(e)}` }); }
   };
-  const today = new Date().toISOString().slice(0, 10);
+  // review_on is a calendar date chosen in the user's own time zone, so compare with the local date.
+  const today = localToday();
   return <>
     <section className="card pad"><Header title="New entry" eyebrow="DECISIONS WITH THEIR EVIDENCE" />
-      <JournalForm symbol={assets[0]?.symbol ?? "MSFT"} assets={assets} onDone={text => { setMsg(text); j.reload(); }} />
-      {msg && <p className="ok-text">{msg}</p>}
+      <JournalForm symbol={assets[0]?.symbol ?? ""} assets={assets} onDone={text => { setMsg(text); j.reload(); }} />
+      {msg && <p className="ok-text" role="status">{msg}</p>}
     </section>
     <section className="card pad"><Header title={`Entries (${j.data?.entries.length ?? 0})`} />
       {j.error && <p className="muted">{j.error}</p>}
@@ -108,6 +132,7 @@ export function JournalPage({ mode, assets }: { mode: Mode; assets: AssetOption[
         <p className="small pre">{e.thesis}</p>
         <p className="tiny">At decision: {money(e.evidence.price, e.evidence.currency)} <span className={`badge ${statusCls(e.evidence.price_status)}`}>{e.evidence.price_status}</span> · score {e.evidence.score} · fundamentals: {e.evidence.fundamentals_source}{e.review_on ? ` · review on ${e.review_on}${e.review_on <= today && e.outcome === "OPEN" ? " (due)" : ""}` : ""}</p>
         <label className="inline">Outcome <select value={e.outcome} onChange={ev => setOutcome(e.id, ev.target.value)}>{(j.data?.outcomes ?? []).map(o => <option key={o} value={o}>{o.replace(/_/g, " ").toLowerCase()}</option>)}</select></label>
+        {outcomeErr?.id === e.id && <p className="error" role="alert">{outcomeErr.text}</p>}
       </article>)}</div>
     </section>
   </>;
@@ -115,30 +140,46 @@ export function JournalPage({ mode, assets }: { mode: Mode; assets: AssetOption[
 
 // ---------- Portfolio ----------
 type Holding = { symbol: string; name: string; quantity: number; average_cost: number; price: number; currency: string; price_status: string; price_source: string; value: number; pnl: number; pnl_pct: number | null; weight_in_currency_pct: number | null; history: Stats | null };
-type MyPortfolio = { holdings: Holding[]; totals_by_currency: Record<string, { value: number; cost: number; pnl: number; return_pct: number | null }>; concentration_flags: string[]; notes: string[] };
+type FxRate = { rate: number | null; status: string; source: string | null };
+type Converted = { currency: string; value: number; cost: number; pnl: number; return_pct: number | null; rates: Record<string, FxRate>; complete: boolean; note: string };
+type MyPortfolio = { holdings: Holding[]; totals_by_currency: Record<string, { value: number; cost: number; pnl: number; return_pct: number | null }>; converted?: Converted | null; concentration_flags: string[]; notes: string[] };
+
+function ConvertedTotals({ c, currencies }: { c: Converted | null | undefined; currencies: number }) {
+  if (c == null) return currencies > 1 ? <p className="tiny">No combined total is shown: an exchange rate needed to convert every currency could not be retrieved live, and rates are never assumed.</p> : null;
+  return <div className="box converted">
+    <div className="kpis three">
+      <Kpi title={`Combined value (${c.currency})`} value={money(c.value, c.currency)} sub={`Cost ${money(c.cost, c.currency)}`} />
+      <Kpi title={`Combined P&L (${c.currency})`} value={money(c.pnl, c.currency)} sub={pct(c.return_pct)} />
+      <Kpi title="Conversion" value={c.complete ? "Complete" : "Partial"} sub={c.complete ? "Every holding converted" : "Some holdings could not be converted"} />
+    </div>
+    <ul className="inputs">{Object.entries(c.rates).map(([cur, r]) => <li key={cur}><span>{cur} → {c.currency}</span><b>{r.rate == null ? "unavailable" : num(r.rate, 6)}</b> <span className={`badge ${statusCls(r.status)}`}>{r.status}</span> <span className="tiny">{r.source ?? ""}</span></li>)}</ul>
+    {c.note && <p className="tiny">{c.note}</p>}
+  </div>;
+}
 
 export function MyPortfolioPage({ assets }: { assets: AssetOption[] }) {
   const p = useLoad<MyPortfolio>("/api/me/portfolio");
-  const [symbol, setSymbol] = useState(assets[0]?.symbol ?? "MSFT");
+  const [symbol, setSymbol] = useSymbol(assets);
   const [qty, setQty] = useState(""); const [cost, setCost] = useState(""); const [err, setErr] = useState("");
   const save = async (e: FormEvent) => {
     e.preventDefault(); setErr("");
     try { await api("/api/me/holdings", { method: "POST", body: JSON.stringify({ symbol, quantity: Number(qty), average_cost: Number(cost) }) }); setQty(""); setCost(""); p.reload(); }
     catch (e2) { setErr((e2 as Error).message); }
   };
-  const remove = async (s: string) => { await api(`/api/me/holdings/${encodeURIComponent(s)}`, { method: "DELETE" }).catch(e => setErr(e.message)); p.reload(); };
+  const remove = async (s: string) => { setErr(""); await api(`/api/me/holdings/${encodeURIComponent(s)}`, { method: "DELETE" }).catch(e => setErr(describeError(e))); p.reload(); };
   return <>
     <section className="card pad"><Header title="My holdings" eyebrow="PRIVATE TO YOUR ACCOUNT" />
       <form className="filters" onSubmit={save}>
         <label>Asset <AssetSelect assets={assets} value={symbol} onChange={setSymbol} /></label>
         <label>Quantity <input type="number" step="any" min="0" required value={qty} onChange={e => setQty(e.target.value)} /></label>
         <label>Average cost (asset currency) <input type="number" step="any" min="0" required value={cost} onChange={e => setCost(e.target.value)} /></label>
-        <button className="btn primary">Add or update</button>
+        <button className="btn primary" disabled={!symbol}>Add or update</button>
       </form>
       {err && <p className="error">{err}</p>}
       {p.error && <p className="muted">{p.error}</p>}
       {p.data && (p.data.holdings.length === 0 ? <p className="muted">No holdings yet. Add what you own to track it at current prices.</p> : <>
         <div className="kpis">{Object.entries(p.data.totals_by_currency).map(([c, t]) => <Kpi key={c} title={`Total in ${c}`} value={money(t.value, c)} sub={`P&L ${money(t.pnl, c)} (${pct(t.return_pct)})`} />)}</div>
+        <ConvertedTotals c={p.data.converted} currencies={Object.keys(p.data.totals_by_currency).length} />
         {p.data.concentration_flags.map(f => <p key={f} className="warn-text">Concentration: {f}.</p>)}
         <div className="table-wrap"><table className="table compact">
           <thead><tr><th>Asset</th><th className="r">Qty</th><th className="r">Avg cost</th><th className="r">Price</th><th className="r">Value</th><th className="r">P&L</th><th className="r">Weight*</th><th className="r">1y vol</th><th className="r">1y return</th><th /></tr></thead>
@@ -157,16 +198,17 @@ export function MyPortfolioPage({ assets }: { assets: AssetOption[] }) {
 }
 
 // ---------- Paper trading ----------
-type PaperAcct = { starting_cash: number; cash: number; positions: { symbol: string; quantity: number; average_cost: number; price: number; price_status: string; currency: string; value: number; pnl: number }[]; orders: { id: number; symbol: string; side: string; quantity: number; fill_price: number; price_status: string; created_at: number }[]; notes: string[] };
+type PaperAcct = { starting_cash: number; cash: number; demo_priced_positions?: number; positions: { symbol: string; quantity: number; average_cost: number; price: number; price_status: string; currency: string; value: number; pnl: number }[]; orders: { id: number; symbol: string; side: string; quantity: number; fill_price: number; price_status: string; created_at: number }[]; notes: string[] };
 
 export function PaperTradingPage({ mode, assets }: { mode: Mode; assets: AssetOption[] }) {
   const gate = needsAccount(mode, "Paper trading");
   const a = useLoad<PaperAcct>(gate ? null : "/api/me/paper");
-  const [symbol, setSymbol] = useState(assets[0]?.symbol ?? "MSFT");
+  const [symbol, setSymbol] = useSymbol(assets);
   const [side, setSide] = useState("BUY"); const [qty, setQty] = useState(""); const [msg, setMsg] = useState(""); const [err, setErr] = useState("");
   if (gate) return gate;
   const submit = async (e: FormEvent) => {
     e.preventDefault(); setErr(""); setMsg("");
+    if (!symbol) { setErr("Choose an asset first."); return; }
     try {
       const o = await api<{ side: string; quantity: number; symbol: string; fill_price: number; price_status: string }>("/api/me/paper/orders", { method: "POST", body: JSON.stringify({ symbol, side, quantity: Number(qty) }) });
       setMsg(`Simulated ${o.side} of ${o.quantity} ${o.symbol} filled at ${num(o.fill_price)} (${o.price_status} quote).`); setQty(""); a.reload();
@@ -175,12 +217,13 @@ export function PaperTradingPage({ mode, assets }: { mode: Mode; assets: AssetOp
   return <>
     <div className="banner warn inline"><b>Simulation only.</b> No real money and no real orders. Fills use the server's current quote and record whether it was live.</div>
     {a.data && <div className="kpis three"><Kpi title="Simulated cash" value={num(a.data.cash)} sub={`Started with ${num(a.data.starting_cash)}`} /><Kpi title="Open positions" value={`${a.data.positions.length}`} sub="" /><Kpi title="Orders" value={`${a.data.orders.length}`} sub="Stored permanently in your account" /></div>}
+    {a.data && (a.data.demo_priced_positions ?? 0) > 0 && <p className="warn-text">{a.data.demo_priced_positions} open position{a.data.demo_priced_positions === 1 ? " is" : "s are"} valued with DEMO prices, so equity and returns are not live.</p>}
     <section className="card pad"><Header title="Place a simulated order" />
       <form className="filters" onSubmit={submit}>
         <label>Asset <AssetSelect assets={assets} value={symbol} onChange={setSymbol} /></label>
         <label>Side <select value={side} onChange={e => setSide(e.target.value)}><option>BUY</option><option>SELL</option></select></label>
         <label>Quantity <input type="number" step="any" min="0" required value={qty} onChange={e => setQty(e.target.value)} /></label>
-        <button className="btn primary">Submit simulated order</button>
+        <button className="btn primary" disabled={!symbol}>Submit simulated order</button>
       </form>
       {err && <p className="error">{err}</p>}{msg && <p className="ok-text">{msg}</p>}
     </section>
@@ -200,9 +243,9 @@ type Curve = { final_equity: number; total_return_pct: number; cagr_pct: number;
 type Backtest = { symbol: string; currency: string; provider: string; rule: string; start: string; end: string; dates: string[]; strategy: Curve; buy_and_hold: Curve; caveats: string[] };
 
 export function BacktestPage({ mode, assets }: { mode: Mode; assets: AssetOption[] }) {
-  const [symbol, setSymbol] = useState(assets.find(a => a.symbol === "MSFT")?.symbol ?? assets[0]?.symbol ?? "MSFT");
+  const [symbol, setSymbol] = useSymbol(assets, assets.find(a => a.symbol === "MSFT")?.symbol);
   const [range, setRange] = useState("5y"); const [windowDays, setWindowDays] = useState(200);
-  const bt = useLoad<Backtest>(mode.kind === "api" ? `/api/assets/${encodeURIComponent(symbol)}/backtest?range=${range}&window=${windowDays}` : null, [symbol, range, windowDays]);
+  const bt = useLoad<Backtest>(mode.kind === "api" && symbol ? `/api/assets/${encodeURIComponent(symbol)}/backtest?range=${range}&window=${windowDays}` : null);
   if (mode.kind !== "api") return <Notice>Backtests run only on real price history retrieved by the API. The static demo site has no history, so no backtest is shown rather than an invented one.</Notice>;
   const row = (name: string, c: Curve) => <tr><td><b>{name}</b></td><td className="r">{num(c.final_equity)}</td><td className={`r ${cls(c.total_return_pct)}`}>{pct(c.total_return_pct)}</td><td className={`r ${cls(c.cagr_pct)}`}>{pct(c.cagr_pct)}</td><td className="r down">{num(c.max_drawdown_pct)}%</td><td className="r">{c.trade_count ?? 1}</td><td className="r">{c.time_invested_pct ?? 100}%</td></tr>;
   return <section className="card pad">

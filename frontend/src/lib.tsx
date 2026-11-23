@@ -24,11 +24,16 @@ export class ApiError extends Error { constructor(public status: number, message
 
 /** Human-readable reason for a failed request (timeout, HTTP status, network). */
 export function describeError(e: unknown): string {
-  if (e instanceof ApiError) return `${e.message}${/^HTTP \d+$/.test(e.message) ? "" : ` (HTTP ${e.status})`}`;
+  if (e instanceof ApiError) return `${e.message}${/^HTTP \d+$/.test(e.message) || e.status < 400 ? "" : ` (HTTP ${e.status})`}`;
   if (e instanceof DOMException && e.name === "TimeoutError") return "The request timed out.";
   if (e instanceof DOMException && e.name === "AbortError") return "The request was cancelled.";
   if (e instanceof TypeError) return "The server could not be reached (network error).";
   return e instanceof Error ? e.message : String(e);
+}
+/** True when an auth response means "no usable account API here" (proxy error page, static host, server
+ *  error, wake-up) rather than "your input was wrong". Only 4xx responses with a JSON `detail` are user errors. */
+export function serverUnavailable(status: number, body: Record<string, unknown> | null) {
+  return status >= 500 || status === 404 || status === 405 || body === null || (status >= 400 && typeof body.detail !== "string" && !Array.isArray(body.detail));
 }
 export const isAbort = (e: unknown) => e instanceof DOMException && e.name === "AbortError";
 
@@ -72,7 +77,8 @@ async function request(path: string, init: RequestInit & { timeoutMs?: number })
 export async function api<T>(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
   const response = await request(path, init);
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  try { return await response.json() as T; }
+  catch { throw new ApiError(response.status, "The server did not return API data (no research API is reachable at this address)"); }
 }
 
 /** Download an authenticated API response as a file (e.g. the personal data export). */
