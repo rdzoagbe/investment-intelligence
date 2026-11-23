@@ -24,3 +24,4 @@ def isolated_db(tmp_path, monkeypatch):
     history._CACHE.clear()
     market_data._CACHE.clear()
     market_data._FX_CACHE.clear()
+    market_data._HEALTH.update(last_success=None, last_error=None, last_error_at=None, consecutive_failures=0, backoff_until=None)

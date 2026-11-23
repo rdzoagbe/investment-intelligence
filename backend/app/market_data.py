@@ -57,16 +57,62 @@ def _provider_symbol(symbol: str) -> str | None:
 PROVIDER_ERRORS: tuple[type[BaseException], ...] = (OSError, http.client.HTTPException, ValueError, TypeError, KeyError, IndexError, AttributeError)
 
 
+# Provider health, shown (without secrets) on the Settings page so a blocked or failing
+# provider is visible instead of silently turning every price into a DEMO fallback.
+_HEALTH_LOCK = threading.Lock()
+_HEALTH: dict[str, object] = {"last_success": None, "last_error": None, "last_error_at": None, "consecutive_failures": 0, "backoff_until": None}
+# After the provider says "slow down" (HTTP 429) or refuses (401/403), stop calling it for a while.
+# Retrying immediately only prolongs a rate limit. No attempt is made to disguise the client.
+RATE_LIMIT_BACKOFF_SECONDS = 15 * 60
+
+
+class ProviderBackoff(URLError):
+    """Raised without a network call while the provider is in a back-off window."""
+
+
+def provider_health() -> dict[str, object]:
+    with _HEALTH_LOCK:
+        h = dict(_HEALTH)
+    now = time.time()
+    fmt = lambda t: time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(t)) if isinstance(t, (int, float)) else "never"  # noqa: E731
+    backoff = h["backoff_until"]
+    return {"last_success": fmt(h["last_success"]), "last_error": h["last_error"] or "none",
+            "last_error_at": fmt(h["last_error_at"]), "consecutive_failures": h["consecutive_failures"],
+            "paused_until": fmt(backoff) if isinstance(backoff, (int, float)) and backoff > now else "not paused"}
+
+
+def _record(ok: bool, error: str | None = None, backoff: bool = False) -> None:
+    now = time.time()
+    with _HEALTH_LOCK:
+        if ok:
+            _HEALTH.update(last_success=now, consecutive_failures=0)
+        else:
+            _HEALTH.update(last_error=error, last_error_at=now, consecutive_failures=int(_HEALTH["consecutive_failures"]) + 1)  # type: ignore[arg-type]
+            if backoff:
+                _HEALTH["backoff_until"] = now + RATE_LIMIT_BACKOFF_SECONDS
+
+
 def _fetch_json(url: str, timeout: float = 5.0) -> dict[str, object]:
-    """Fetch and decode JSON. Any transport/parse failure is re-raised as URLError."""
+    """Fetch and decode JSON. Any transport/parse failure is re-raised as URLError and recorded."""
+    with _HEALTH_LOCK:
+        until = _HEALTH["backoff_until"]
+    if isinstance(until, (int, float)) and until > time.time():
+        raise ProviderBackoff("provider paused after a rate-limit/refusal response")
     request = Request(url, headers={"User-Agent": "Investment-Intelligence/1.0", "Accept": "application/json"})
     try:
         with urlopen(request, timeout=timeout) as response:  # noqa: S310 - URL is constructed internally
-            return json.loads(response.read().decode("utf-8"))
-    except URLError:
+            data = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        _record(False, f"HTTP {exc.code} {exc.reason}", backoff=exc.code in (401, 403, 429))
+        raise
+    except URLError as exc:
+        _record(False, f"network error: {exc.reason}")
         raise
     except (OSError, http.client.HTTPException, ValueError) as exc:
+        _record(False, f"{type(exc).__name__}: {exc}"[:200])
         raise URLError(exc) from exc
+    _record(True)
+    return data
 
 
 _CACHE: dict[str, tuple[float, MarketQuote | None]] = {}
@@ -168,7 +214,7 @@ def live_quotes() -> list[dict[str, object]]:
         return [quote_dict(q) for q in pool.map(quote_for_asset, ASSETS)]
 
 
-def market_data_status() -> dict[str, object]:
+def market_data_status() -> dict[str, object]:  # noqa: D401
     mode = os.getenv("MARKET_DATA_MODE", "live").strip().lower()
     quotes = live_quotes()
     live_count = sum(q["status"] == "LIVE" for q in quotes)
