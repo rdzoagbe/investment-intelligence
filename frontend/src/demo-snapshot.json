@@ -2,6 +2,7 @@
  "analyses": {
   "AAPL": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 87,
      "cash_flow": 67,
@@ -15,6 +16,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 24.0,
      "operating_margin_pct": 32.0,
      "revenue_growth_pct": 6.0,
@@ -24,8 +31,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.3,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 34.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -80,8 +90,8 @@
       "China exposure"
      ],
      "bull": [
-      "Revenue growth is 6.0% from the tracked fundamental source.",
-      "Operating margin is 32.0% and free-cash-flow margin is 24.0%.",
+      "Revenue growth is 6.0% (Seed value (not live)).",
+      "Operating margin is 32.0% (Seed value (not live)) and free-cash-flow margin is 24.0% (Seed value (not live)).",
       "Services growth"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -97,11 +107,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 175.42,
-       "growth_pct": 0,
+       "fair_value": 171.92,
+       "growth_pct": -2.0,
        "label": "Bear",
        "multiple": 26.0,
-       "upside_pct": -23.5
+       "upside_pct": -25.1
       },
       {
        "fair_value": 243.16,
@@ -119,17 +129,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 68.9/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "China exposure"
     ],
     "bull_case": [
-     "Score of 68.9/100 indicates favorable modeled factors.",
      "Services growth",
      "Installed base"
     ],
@@ -149,7 +160,7 @@
     },
     "score": 68.9,
     "symbol": "AAPL",
-    "timestamp": "2026-11-22T17:58:10.588626+00:00",
+    "timestamp": "2026-11-23T11:11:58.613788+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 243.16,
@@ -160,11 +171,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 175.42,
-       "growth_pct": 0,
+       "fair_value": 171.92,
+       "growth_pct": -2.0,
        "label": "Bear",
        "multiple": 26.0,
-       "upside_pct": -23.5
+       "upside_pct": -25.1
       },
       {
        "fair_value": 243.16,
@@ -182,11 +193,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "ACCESS": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 46,
@@ -200,6 +212,12 @@
     "currency": "GHS",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 8.0,
      "operating_margin_pct": 25.0,
      "revenue_growth_pct": 18.0,
@@ -209,8 +227,11 @@
     "macro_sensitivity": "High",
     "market": "GSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.0,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 6.5,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -265,8 +286,8 @@
       "Credit losses"
      ],
      "bull": [
-      "Revenue growth is 18.0% from the tracked fundamental source.",
-      "Operating margin is 25.0% and free-cash-flow margin is 8.0%.",
+      "Revenue growth is 18.0% (Seed value (not live)).",
+      "Operating margin is 25.0% (Seed value (not live)) and free-cash-flow margin is 8.0% (Seed value (not live)).",
       "Regional banking growth"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -282,11 +303,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 24.64,
+       "fair_value": 14.01,
        "growth_pct": 10.0,
        "label": "Bear",
-       "multiple": 8,
-       "upside_pct": 35.4
+       "multiple": 4.5,
+       "upside_pct": -23.0
       },
       {
        "fair_value": 21.48,
@@ -308,13 +329,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "FX volatility",
      "Credit losses"
     ],
     "bull_case": [
-     "Score of 72.7/100 indicates favorable modeled factors.",
+     "Score of 72.7/100 (Watch band): several modeled factors are favorable.",
      "Regional banking growth",
      "Digital channels"
     ],
@@ -334,7 +356,7 @@
     },
     "score": 72.7,
     "symbol": "ACCESS",
-    "timestamp": "2026-11-22T17:58:10.588556+00:00",
+    "timestamp": "2026-11-23T11:11:58.613665+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 21.48,
@@ -345,11 +367,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 24.64,
+       "fair_value": 14.01,
        "growth_pct": 10.0,
        "label": "Bear",
-       "multiple": 8,
-       "upside_pct": 35.4
+       "multiple": 4.5,
+       "upside_pct": -23.0
       },
       {
        "fair_value": 21.48,
@@ -372,6 +394,7 @@
   },
   "AIR.PA": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 85,
      "cash_flow": 43,
@@ -385,6 +408,12 @@
     "currency": "EUR",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 6.0,
      "operating_margin_pct": 10.0,
      "revenue_growth_pct": 8.0,
@@ -394,8 +423,11 @@
     "macro_sensitivity": "Moderate",
     "market": "Euronext Paris",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.4,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 26.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -450,8 +482,8 @@
       "Production execution"
      ],
      "bull": [
-      "Revenue growth is 8.0% from the tracked fundamental source.",
-      "Operating margin is 10.0% and free-cash-flow margin is 6.0%.",
+      "Revenue growth is 8.0% (Seed value (not live)).",
+      "Operating margin is 10.0% (Seed value (not live)) and free-cash-flow margin is 6.0% (Seed value (not live)).",
       "Aircraft backlog"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -467,11 +499,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 106.75,
+       "fair_value": 107.94,
        "growth_pct": 0.0,
        "label": "Bear",
-       "multiple": 18.0,
-       "upside_pct": -30.8
+       "multiple": 18.2,
+       "upside_pct": -30.0
       },
       {
        "fair_value": 166.54,
@@ -489,17 +521,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 61.6/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Supply chain",
      "Production execution"
     ],
     "bull_case": [
-     "Score of 61.6/100 indicates favorable modeled factors.",
      "Aircraft backlog",
      "Fleet renewal"
     ],
@@ -519,7 +552,7 @@
     },
     "score": 61.6,
     "symbol": "AIR.PA",
-    "timestamp": "2026-11-22T17:58:10.589334+00:00",
+    "timestamp": "2026-11-23T11:11:58.614345+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 166.54,
@@ -530,11 +563,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 106.75,
+       "fair_value": 107.94,
        "growth_pct": 0.0,
        "label": "Bear",
-       "multiple": 18.0,
-       "upside_pct": -30.8
+       "multiple": 18.2,
+       "upside_pct": -30.0
       },
       {
        "fair_value": 166.54,
@@ -552,11 +585,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "AMZN": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 85,
      "cash_flow": 47,
@@ -570,6 +604,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 9.0,
      "operating_margin_pct": 11.0,
      "revenue_growth_pct": 11.0,
@@ -579,8 +619,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.4,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 39.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -635,8 +678,8 @@
       "Cloud competition"
      ],
      "bull": [
-      "Revenue growth is 11.0% from the tracked fundamental source.",
-      "Operating margin is 11.0% and free-cash-flow margin is 9.0%.",
+      "Revenue growth is 11.0% (Seed value (not live)).",
+      "Operating margin is 11.0% (Seed value (not live)) and free-cash-flow margin is 9.0% (Seed value (not live)).",
       "AWS growth"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -674,17 +717,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 64.5/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "Cloud competition"
     ],
     "bull_case": [
-     "Score of 64.5/100 indicates favorable modeled factors.",
      "AWS growth",
      "Advertising"
     ],
@@ -704,7 +748,7 @@
     },
     "score": 64.5,
     "symbol": "AMZN",
-    "timestamp": "2026-11-22T17:58:10.588591+00:00",
+    "timestamp": "2026-11-23T11:11:58.613747+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 253.19,
@@ -737,11 +781,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "ASML": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 71,
@@ -755,6 +800,12 @@
     "currency": "EUR",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 27.0,
      "operating_margin_pct": 32.0,
      "revenue_growth_pct": 12.0,
@@ -764,8 +815,11 @@
     "macro_sensitivity": "High",
     "market": "Euronext Amsterdam",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.1,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 31.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -820,8 +874,8 @@
       "Semiconductor cycle"
      ],
      "bull": [
-      "Revenue growth is 12.0% from the tracked fundamental source.",
-      "Operating margin is 32.0% and free-cash-flow margin is 27.0%.",
+      "Revenue growth is 12.0% (Seed value (not live)).",
+      "Operating margin is 32.0% (Seed value (not live)) and free-cash-flow margin is 27.0% (Seed value (not live)).",
       "EUV demand"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -863,13 +917,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "China restrictions",
      "Semiconductor cycle"
     ],
     "bull_case": [
-     "Score of 75.2/100 indicates favorable modeled factors.",
+     "Score of 75.2/100 (Watch band): several modeled factors are favorable.",
      "EUV demand",
      "AI semiconductor capex"
     ],
@@ -889,7 +944,7 @@
     },
     "score": 75.2,
     "symbol": "ASML",
-    "timestamp": "2026-11-22T17:58:10.588474+00:00",
+    "timestamp": "2026-11-23T11:11:58.613571+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 753.09,
@@ -927,6 +982,7 @@
   },
   "AVGO": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 70,
      "cash_flow": 73,
@@ -940,6 +996,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 28.0,
      "operating_margin_pct": 42.0,
      "revenue_growth_pct": 17.0,
@@ -949,8 +1011,11 @@
     "macro_sensitivity": "High",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 1.2,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 32.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -1005,8 +1070,8 @@
       "Customer concentration"
      ],
      "bull": [
-      "Revenue growth is 17.0% from the tracked fundamental source.",
-      "Operating margin is 42.0% and free-cash-flow margin is 28.0%.",
+      "Revenue growth is 17.0% (Seed value (not live)).",
+      "Operating margin is 42.0% (Seed value (not live)) and free-cash-flow margin is 28.0% (Seed value (not live)).",
       "AI networking"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -1048,13 +1113,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Leverage",
      "Customer concentration"
     ],
     "bull_case": [
-     "Score of 75.5/100 indicates favorable modeled factors.",
+     "Score of 75.5/100 (Watch band): several modeled factors are favorable.",
      "AI networking",
      "Custom accelerators"
     ],
@@ -1074,7 +1140,7 @@
     },
     "score": 75.5,
     "symbol": "AVGO",
-    "timestamp": "2026-11-22T17:58:10.588970+00:00",
+    "timestamp": "2026-11-23T11:11:58.613930+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 200.42,
@@ -1112,6 +1178,7 @@
   },
   "BRK-B": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 57,
@@ -1125,6 +1192,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 16.0,
      "operating_margin_pct": 18.0,
      "revenue_growth_pct": 5.0,
@@ -1134,8 +1207,11 @@
     "macro_sensitivity": "Low",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.7,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 22.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -1190,8 +1266,8 @@
       "Succession"
      ],
      "bull": [
-      "Revenue growth is 5.0% from the tracked fundamental source.",
-      "Operating margin is 18.0% and free-cash-flow margin is 16.0%.",
+      "Revenue growth is 5.0% (Seed value (not live)).",
+      "Operating margin is 18.0% (Seed value (not live)) and free-cash-flow margin is 16.0% (Seed value (not live)).",
       "Insurance float"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -1207,11 +1283,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 289.67,
-       "growth_pct": 0,
+       "fair_value": 309.08,
+       "growth_pct": -3.0,
        "label": "Bear",
-       "multiple": 14.0,
-       "upside_pct": -36.4
+       "multiple": 15.4,
+       "upside_pct": -32.1
       },
       {
        "fair_value": 477.96,
@@ -1229,17 +1305,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 65.9/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Insurance losses",
      "Succession"
     ],
     "bull_case": [
-     "Score of 65.9/100 indicates favorable modeled factors.",
      "Insurance float",
      "Cash optionality"
     ],
@@ -1259,7 +1336,7 @@
     },
     "score": 65.9,
     "symbol": "BRK-B",
-    "timestamp": "2026-11-22T17:58:10.589129+00:00",
+    "timestamp": "2026-11-23T11:11:58.614098+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 477.96,
@@ -1270,11 +1347,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 289.67,
-       "growth_pct": 0,
+       "fair_value": 309.08,
+       "growth_pct": -3.0,
        "label": "Bear",
-       "multiple": 14.0,
-       "upside_pct": -36.4
+       "multiple": 15.4,
+       "upside_pct": -32.1
       },
       {
        "fair_value": 477.96,
@@ -1292,11 +1369,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "CRM": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 88,
      "cash_flow": 69,
@@ -1310,6 +1388,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 25.0,
      "operating_margin_pct": 18.0,
      "revenue_growth_pct": 10.0,
@@ -1319,8 +1403,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.2,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 34.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -1375,8 +1462,8 @@
       "Growth deceleration"
      ],
      "bull": [
-      "Revenue growth is 10.0% from the tracked fundamental source.",
-      "Operating margin is 18.0% and free-cash-flow margin is 25.0%.",
+      "Revenue growth is 10.0% (Seed value (not live)).",
+      "Operating margin is 18.0% (Seed value (not live)) and free-cash-flow margin is 25.0% (Seed value (not live)).",
       "Subscription growth"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -1414,17 +1501,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 69.5/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Competition",
      "Growth deceleration"
     ],
     "bull_case": [
-     "Score of 69.5/100 indicates favorable modeled factors.",
      "Subscription growth",
      "AI agents"
     ],
@@ -1444,7 +1532,7 @@
     },
     "score": 69.5,
     "symbol": "CRM",
-    "timestamp": "2026-11-22T17:58:10.589072+00:00",
+    "timestamp": "2026-11-23T11:11:58.614031+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 332.86,
@@ -1477,11 +1565,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "GOOGL": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 65,
@@ -1495,6 +1584,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 22.0,
      "operating_margin_pct": 32.0,
      "revenue_growth_pct": 13.0,
@@ -1504,8 +1599,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.6,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 25.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -1560,8 +1658,8 @@
       "AI disruption"
      ],
      "bull": [
-      "Revenue growth is 13.0% from the tracked fundamental source.",
-      "Operating margin is 32.0% and free-cash-flow margin is 22.0%.",
+      "Revenue growth is 13.0% (Seed value (not live)).",
+      "Operating margin is 32.0% (Seed value (not live)) and free-cash-flow margin is 22.0% (Seed value (not live)).",
       "Search monetisation"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -1577,11 +1675,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 125.38,
+       "fair_value": 129.07,
        "growth_pct": 5.0,
        "label": "Bear",
-       "multiple": 17.0,
-       "upside_pct": -28.6
+       "multiple": 17.5,
+       "upside_pct": -26.5
       },
       {
        "fair_value": 198.43,
@@ -1603,13 +1701,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Regulation",
      "AI disruption"
     ],
     "bull_case": [
-     "Score of 75.5/100 indicates favorable modeled factors.",
+     "Score of 75.5/100 (Watch band): several modeled factors are favorable.",
      "Search monetisation",
      "Cloud growth"
     ],
@@ -1629,7 +1728,7 @@
     },
     "score": 75.5,
     "symbol": "GOOGL",
-    "timestamp": "2026-11-22T17:58:10.588820+00:00",
+    "timestamp": "2026-11-23T11:11:58.613825+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 198.43,
@@ -1640,11 +1739,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 125.38,
+       "fair_value": 129.07,
        "growth_pct": 5.0,
        "label": "Bear",
-       "multiple": 17.0,
-       "upside_pct": -28.6
+       "multiple": 17.5,
+       "upside_pct": -26.5
       },
       {
        "fair_value": 198.43,
@@ -1667,6 +1766,7 @@
   },
   "JNJ": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 81,
      "cash_flow": 61,
@@ -1680,6 +1780,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 19.0,
      "operating_margin_pct": 25.0,
      "revenue_growth_pct": 3.0,
@@ -1689,8 +1795,11 @@
     "macro_sensitivity": "Low",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.6,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 15.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -1745,8 +1854,8 @@
       "Patent expiry"
      ],
      "bull": [
-      "Revenue growth is 3.0% from the tracked fundamental source.",
-      "Operating margin is 25.0% and free-cash-flow margin is 19.0%.",
+      "Revenue growth is 3.0% (Seed value (not live)).",
+      "Operating margin is 25.0% (Seed value (not live)) and free-cash-flow margin is 19.0% (Seed value (not live)).",
       "Defensive demand"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -1762,11 +1871,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 86.61,
-       "growth_pct": 0,
+       "fair_value": 108.0,
+       "growth_pct": -5.0,
        "label": "Bear",
-       "multiple": 8,
-       "upside_pct": -46.7
+       "multiple": 10.5,
+       "upside_pct": -33.5
       },
       {
        "fair_value": 167.27,
@@ -1784,17 +1893,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 64.7/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Litigation",
      "Patent expiry"
     ],
     "bull_case": [
-     "Score of 64.7/100 indicates favorable modeled factors.",
      "Defensive demand",
      "MedTech"
     ],
@@ -1814,7 +1924,7 @@
     },
     "score": 64.7,
     "symbol": "JNJ",
-    "timestamp": "2026-11-22T17:58:10.589189+00:00",
+    "timestamp": "2026-11-23T11:11:58.614163+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 167.27,
@@ -1825,11 +1935,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 86.61,
-       "growth_pct": 0,
+       "fair_value": 108.0,
+       "growth_pct": -5.0,
        "label": "Bear",
-       "multiple": 8,
-       "upside_pct": -46.7
+       "multiple": 10.5,
+       "upside_pct": -33.5
       },
       {
        "fair_value": 167.27,
@@ -1847,11 +1957,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "JPM": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 59,
@@ -1865,6 +1976,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 18.0,
      "operating_margin_pct": 30.0,
      "revenue_growth_pct": 7.0,
@@ -1874,8 +1991,11 @@
     "macro_sensitivity": "High",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.0,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 13.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -1930,8 +2050,8 @@
       "Rates"
      ],
      "bull": [
-      "Revenue growth is 7.0% from the tracked fundamental source.",
-      "Operating margin is 30.0% and free-cash-flow margin is 18.0%.",
+      "Revenue growth is 7.0% (Seed value (not live)).",
+      "Operating margin is 30.0% (Seed value (not live)) and free-cash-flow margin is 18.0% (Seed value (not live)).",
       "Net interest income"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -1947,11 +2067,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 138.28,
-       "growth_pct": 0,
+       "fair_value": 155.72,
+       "growth_pct": -1.0,
        "label": "Bear",
-       "multiple": 8,
-       "upside_pct": -38.5
+       "multiple": 9.1,
+       "upside_pct": -30.7
       },
       {
        "fair_value": 240.43,
@@ -1969,17 +2089,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 71.6/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Credit losses",
      "Rates"
     ],
     "bull_case": [
-     "Score of 71.6/100 indicates favorable modeled factors.",
      "Net interest income",
      "Investment banking"
     ],
@@ -1999,7 +2120,7 @@
     },
     "score": 71.6,
     "symbol": "JPM",
-    "timestamp": "2026-11-22T17:58:10.589099+00:00",
+    "timestamp": "2026-11-23T11:11:58.614065+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 240.43,
@@ -2010,11 +2131,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 138.28,
-       "growth_pct": 0,
+       "fair_value": 155.72,
+       "growth_pct": -1.0,
        "label": "Bear",
-       "multiple": 8,
-       "upside_pct": -38.5
+       "multiple": 9.1,
+       "upside_pct": -30.7
       },
       {
        "fair_value": 240.43,
@@ -2032,11 +2153,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "KO": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 61,
      "cash_flow": 62,
@@ -2050,6 +2172,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 20.0,
      "operating_margin_pct": 31.0,
      "revenue_growth_pct": 5.0,
@@ -2059,8 +2187,11 @@
     "macro_sensitivity": "Low",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 1.7,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 26.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -2115,8 +2246,8 @@
       "FX"
      ],
      "bull": [
-      "Revenue growth is 5.0% from the tracked fundamental source.",
-      "Operating margin is 31.0% and free-cash-flow margin is 20.0%.",
+      "Revenue growth is 5.0% (Seed value (not live)).",
+      "Operating margin is 31.0% (Seed value (not live)) and free-cash-flow margin is 20.0% (Seed value (not live)).",
       "Pricing"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -2132,11 +2263,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 49.29,
-       "growth_pct": 0,
+       "fair_value": 48.34,
+       "growth_pct": -3.0,
        "label": "Bear",
-       "multiple": 18.0,
-       "upside_pct": -30.8
+       "multiple": 18.2,
+       "upside_pct": -32.1
       },
       {
        "fair_value": 74.76,
@@ -2154,17 +2285,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 61.2/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Input costs",
      "FX"
     ],
     "bull_case": [
-     "Score of 61.2/100 indicates favorable modeled factors.",
      "Pricing",
      "Global distribution"
     ],
@@ -2184,7 +2316,7 @@
     },
     "score": 61.2,
     "symbol": "KO",
-    "timestamp": "2026-11-22T17:58:10.589391+00:00",
+    "timestamp": "2026-11-23T11:11:58.614429+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 74.76,
@@ -2195,11 +2327,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 49.29,
-       "growth_pct": 0,
+       "fair_value": 48.34,
+       "growth_pct": -3.0,
        "label": "Bear",
-       "multiple": 18.0,
-       "upside_pct": -30.8
+       "multiple": 18.2,
+       "upside_pct": -32.1
       },
       {
        "fair_value": 74.76,
@@ -2217,11 +2349,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "LLY": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 83,
      "cash_flow": 62,
@@ -2235,6 +2368,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 20.0,
      "operating_margin_pct": 34.0,
      "revenue_growth_pct": 24.0,
@@ -2244,8 +2383,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.5,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 42.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -2300,8 +2442,8 @@
       "Competition"
      ],
      "bull": [
-      "Revenue growth is 24.0% from the tracked fundamental source.",
-      "Operating margin is 34.0% and free-cash-flow margin is 20.0%.",
+      "Revenue growth is 24.0% (Seed value (not live)).",
+      "Operating margin is 34.0% (Seed value (not live)) and free-cash-flow margin is 20.0% (Seed value (not live)).",
       "GLP-1 demand"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -2343,13 +2485,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "Competition"
     ],
     "bull_case": [
-     "Score of 77.5/100 indicates favorable modeled factors.",
+     "Score of 77.5/100 (Watch band): several modeled factors are favorable.",
      "GLP-1 demand",
      "Pipeline"
     ],
@@ -2369,7 +2512,7 @@
     },
     "score": 77.5,
     "symbol": "LLY",
-    "timestamp": "2026-11-22T17:58:10.589162+00:00",
+    "timestamp": "2026-11-23T11:11:58.614133+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 1035.4,
@@ -2407,6 +2550,7 @@
   },
   "MC.PA": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 74,
      "cash_flow": 59,
@@ -2420,6 +2564,12 @@
     "currency": "EUR",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 18.0,
      "operating_margin_pct": 27.0,
      "revenue_growth_pct": 6.0,
@@ -2429,8 +2579,11 @@
     "macro_sensitivity": "Moderate",
     "market": "Euronext Paris",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 1.0,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 23.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -2485,8 +2638,8 @@
       "FX"
      ],
      "bull": [
-      "Revenue growth is 6.0% from the tracked fundamental source.",
-      "Operating margin is 27.0% and free-cash-flow margin is 18.0%.",
+      "Revenue growth is 6.0% (Seed value (not live)).",
+      "Operating margin is 27.0% (Seed value (not live)) and free-cash-flow margin is 18.0% (Seed value (not live)).",
       "Luxury recovery"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -2502,11 +2655,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 422.93,
-       "growth_pct": 0,
+       "fair_value": 444.87,
+       "growth_pct": -2.0,
        "label": "Bear",
-       "multiple": 15.0,
-       "upside_pct": -34.8
+       "multiple": 16.1,
+       "upside_pct": -31.4
       },
       {
        "fair_value": 687.41,
@@ -2524,17 +2677,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 63.2/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "China slowdown",
      "FX"
     ],
     "bull_case": [
-     "Score of 63.2/100 indicates favorable modeled factors.",
      "Luxury recovery",
      "Brand power"
     ],
@@ -2554,7 +2708,7 @@
     },
     "score": 63.2,
     "symbol": "MC.PA",
-    "timestamp": "2026-11-22T17:58:10.589278+00:00",
+    "timestamp": "2026-11-23T11:11:58.614267+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 687.41,
@@ -2565,11 +2719,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 422.93,
-       "growth_pct": 0,
+       "fair_value": 444.87,
+       "growth_pct": -2.0,
        "label": "Bear",
-       "multiple": 15.0,
-       "upside_pct": -34.8
+       "multiple": 16.1,
+       "upside_pct": -31.4
       },
       {
        "fair_value": 687.41,
@@ -2587,11 +2741,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "META": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 76,
@@ -2605,6 +2760,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 30.0,
      "operating_margin_pct": 38.0,
      "revenue_growth_pct": 18.0,
@@ -2614,8 +2775,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.5,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 24.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -2670,8 +2834,8 @@
       "Capex"
      ],
      "bull": [
-      "Revenue growth is 18.0% from the tracked fundamental source.",
-      "Operating margin is 38.0% and free-cash-flow margin is 30.0%.",
+      "Revenue growth is 18.0% (Seed value (not live)).",
+      "Operating margin is 38.0% (Seed value (not live)) and free-cash-flow margin is 30.0% (Seed value (not live)).",
       "Ad demand"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -2687,11 +2851,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 402.01,
+       "fair_value": 422.11,
        "growth_pct": 10.0,
        "label": "Bear",
-       "multiple": 16.0,
-       "upside_pct": -26.7
+       "multiple": 16.8,
+       "upside_pct": -23.0
       },
       {
        "fair_value": 646.88,
@@ -2713,13 +2877,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Regulation",
      "Capex"
     ],
     "bull_case": [
-     "Score of 82.5/100 indicates favorable modeled factors.",
+     "Score of 82.5/100 (Watch band): several modeled factors are favorable.",
      "Ad demand",
      "AI recommendation"
     ],
@@ -2739,7 +2904,7 @@
     },
     "score": 82.5,
     "symbol": "META",
-    "timestamp": "2026-11-22T17:58:10.588868+00:00",
+    "timestamp": "2026-11-23T11:11:58.613860+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 646.88,
@@ -2750,11 +2915,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 402.01,
+       "fair_value": 422.11,
        "growth_pct": 10.0,
        "label": "Bear",
-       "multiple": 16.0,
-       "upside_pct": -26.7
+       "multiple": 16.8,
+       "upside_pct": -23.0
       },
       {
        "fair_value": 646.88,
@@ -2777,6 +2942,7 @@
   },
   "MSFT": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 78,
@@ -2790,6 +2956,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 32.0,
      "operating_margin_pct": 44.0,
      "revenue_growth_pct": 14.0,
@@ -2799,8 +2971,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.2,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 35.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -2855,8 +3030,8 @@
       "Regulation"
      ],
      "bull": [
-      "Revenue growth is 14.0% from the tracked fundamental source.",
-      "Operating margin is 44.0% and free-cash-flow margin is 32.0%.",
+      "Revenue growth is 14.0% (Seed value (not live)).",
+      "Operating margin is 44.0% (Seed value (not live)) and free-cash-flow margin is 32.0% (Seed value (not live)).",
       "Cloud/AI demand"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -2898,13 +3073,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "Regulation"
     ],
     "bull_case": [
-     "Score of 78.9/100 indicates favorable modeled factors.",
+     "Score of 78.9/100 (Watch band): several modeled factors are favorable.",
      "Cloud/AI demand",
      "Copilot monetisation"
     ],
@@ -2924,7 +3100,7 @@
     },
     "score": 78.9,
     "symbol": "MSFT",
-    "timestamp": "2026-11-22T17:58:10.588405+00:00",
+    "timestamp": "2026-11-23T11:11:58.613494+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 473.33,
@@ -2962,6 +3138,7 @@
   },
   "NESN.SW": {
    "analysis": {
+    "band": "Low score",
     "breakdown": {
      "balance_sheet": 60,
      "cash_flow": 51,
@@ -2975,6 +3152,12 @@
     "currency": "CHF",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 12.0,
      "operating_margin_pct": 17.0,
      "revenue_growth_pct": 4.0,
@@ -2984,8 +3167,11 @@
     "macro_sensitivity": "Low",
     "market": "SIX Swiss Exchange",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 1.8,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 20.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -3040,8 +3226,8 @@
       "Consumer weakness"
      ],
      "bull": [
-      "Revenue growth is 4.0% from the tracked fundamental source.",
-      "Operating margin is 17.0% and free-cash-flow margin is 12.0%.",
+      "Revenue growth is 4.0% (Seed value (not live)).",
+      "Operating margin is 17.0% (Seed value (not live)) and free-cash-flow margin is 12.0% (Seed value (not live)).",
       "Pricing power"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -3057,11 +3243,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 49.26,
-       "growth_pct": 0,
+       "fair_value": 55.17,
+       "growth_pct": -4.0,
        "label": "Bear",
-       "multiple": 12.0,
-       "upside_pct": -40.0
+       "multiple": 14.0,
+       "upside_pct": -32.8
       },
       {
        "fair_value": 85.38,
@@ -3079,17 +3265,18 @@
       }
      ]
     },
-    "verdict": "AVOID"
+    "verdict": "LOW_SCORE"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Low score",
     "bear_case": [
+     "Score of 55.7/100 (Low score band): few modeled factors are favorable.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Input costs",
      "Consumer weakness"
     ],
     "bull_case": [
-     "Score of 55.7/100 indicates favorable modeled factors.",
      "Pricing power",
      "Emerging markets"
     ],
@@ -3109,7 +3296,7 @@
     },
     "score": 55.7,
     "symbol": "NESN.SW",
-    "timestamp": "2026-11-22T17:58:10.589221+00:00",
+    "timestamp": "2026-11-23T11:11:58.614200+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 85.38,
@@ -3120,11 +3307,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 49.26,
-       "growth_pct": 0,
+       "fair_value": 55.17,
+       "growth_pct": -4.0,
        "label": "Bear",
-       "multiple": 12.0,
-       "upside_pct": -40.0
+       "multiple": 14.0,
+       "upside_pct": -32.8
       },
       {
        "fair_value": 85.38,
@@ -3142,11 +3329,12 @@
       }
      ]
     },
-    "verdict": "AVOID"
+    "verdict": "LOW_SCORE"
    }
   },
   "NVDA": {
    "analysis": {
+    "band": "High score",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 82,
@@ -3160,6 +3348,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 35.0,
      "operating_margin_pct": 62.0,
      "revenue_growth_pct": 28.0,
@@ -3169,8 +3363,11 @@
     "macro_sensitivity": "High",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -1.0,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 45.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -3225,8 +3422,8 @@
       "Competition"
      ],
      "bull": [
-      "Revenue growth is 28.0% from the tracked fundamental source.",
-      "Operating margin is 62.0% and free-cash-flow margin is 35.0%.",
+      "Revenue growth is 28.0% (Seed value (not live)).",
+      "Operating margin is 62.0% (Seed value (not live)) and free-cash-flow margin is 35.0% (Seed value (not live)).",
       "AI accelerator demand"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -3264,17 +3461,18 @@
       }
      ]
     },
-    "verdict": "BUY"
+    "verdict": "HIGH_SCORE"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "High score",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "Competition"
     ],
     "bull_case": [
-     "Score of 88.6/100 indicates favorable modeled factors.",
+     "Score of 88.6/100 (High score band): most modeled factors are favorable.",
      "AI accelerator demand",
      "Data-centre growth"
     ],
@@ -3294,7 +3492,7 @@
     },
     "score": 88.6,
     "symbol": "NVDA",
-    "timestamp": "2026-11-22T17:58:10.588901+00:00",
+    "timestamp": "2026-11-23T11:11:58.613897+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 153.34,
@@ -3327,11 +3525,12 @@
       }
      ]
     },
-    "verdict": "BUY"
+    "verdict": "HIGH_SCORE"
    }
   },
   "ORCL": {
    "analysis": {
+    "band": "Low score",
     "breakdown": {
      "balance_sheet": 34,
      "cash_flow": 62,
@@ -3345,6 +3544,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 20.0,
      "operating_margin_pct": 31.0,
      "revenue_growth_pct": 9.0,
@@ -3354,8 +3559,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 3.2,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 35.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -3410,8 +3618,8 @@
       "Cloud competition"
      ],
      "bull": [
-      "Revenue growth is 9.0% from the tracked fundamental source.",
-      "Operating margin is 31.0% and free-cash-flow margin is 20.0%.",
+      "Revenue growth is 9.0% (Seed value (not live)).",
+      "Operating margin is 31.0% (Seed value (not live)) and free-cash-flow margin is 20.0% (Seed value (not live)).",
       "Cloud infrastructure"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -3449,17 +3657,18 @@
       }
      ]
     },
-    "verdict": "AVOID"
+    "verdict": "LOW_SCORE"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Low score",
     "bear_case": [
+     "Score of 57.8/100 (Low score band): few modeled factors are favorable.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Leverage",
      "Cloud competition"
     ],
     "bull_case": [
-     "Score of 57.8/100 indicates favorable modeled factors.",
      "Cloud infrastructure",
      "Database installed base"
     ],
@@ -3479,7 +3688,7 @@
     },
     "score": 57.8,
     "symbol": "ORCL",
-    "timestamp": "2026-11-22T17:58:10.589042+00:00",
+    "timestamp": "2026-11-23T11:11:58.613996+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 194.46,
@@ -3512,11 +3721,12 @@
       }
      ]
     },
-    "verdict": "AVOID"
+    "verdict": "LOW_SCORE"
    }
   },
   "SAP": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 88,
      "cash_flow": 67,
@@ -3530,6 +3740,12 @@
     "currency": "EUR",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 24.0,
      "operating_margin_pct": 28.0,
      "revenue_growth_pct": 10.0,
@@ -3539,8 +3755,11 @@
     "macro_sensitivity": "Moderate",
     "market": "Xetra",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.2,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 41.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -3595,8 +3814,8 @@
       "Cloud transition"
      ],
      "bull": [
-      "Revenue growth is 10.0% from the tracked fundamental source.",
-      "Operating margin is 28.0% and free-cash-flow margin is 24.0%.",
+      "Revenue growth is 10.0% (Seed value (not live)).",
+      "Operating margin is 28.0% (Seed value (not live)) and free-cash-flow margin is 24.0% (Seed value (not live)).",
       "Cloud backlog"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -3634,17 +3853,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 70.4/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "Cloud transition"
     ],
     "bull_case": [
-     "Score of 70.4/100 indicates favorable modeled factors.",
      "Cloud backlog",
      "Recurring revenue"
     ],
@@ -3664,7 +3884,7 @@
     },
     "score": 70.4,
     "symbol": "SAP",
-    "timestamp": "2026-11-22T17:58:10.589251+00:00",
+    "timestamp": "2026-11-23T11:11:58.614236+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 272.03,
@@ -3697,11 +3917,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "SONY": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 87,
      "cash_flow": 47,
@@ -3715,6 +3936,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 9.0,
      "operating_margin_pct": 12.0,
      "revenue_growth_pct": 7.0,
@@ -3724,8 +3951,11 @@
     "macro_sensitivity": "Moderate",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 0.3,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 17.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -3780,8 +4010,8 @@
       "FX"
      ],
      "bull": [
-      "Revenue growth is 7.0% from the tracked fundamental source.",
-      "Operating margin is 12.0% and free-cash-flow margin is 9.0%.",
+      "Revenue growth is 7.0% (Seed value (not live)).",
+      "Operating margin is 12.0% (Seed value (not live)) and free-cash-flow margin is 9.0% (Seed value (not live)).",
       "Gaming"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -3797,11 +4027,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 48.34,
-       "growth_pct": 0,
+       "fair_value": 63.27,
+       "growth_pct": -1.0,
        "label": "Bear",
-       "multiple": 9.0,
-       "upside_pct": -47.1
+       "multiple": 11.9,
+       "upside_pct": -30.7
       },
       {
        "fair_value": 97.69,
@@ -3819,17 +4049,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 63.8/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Console cycle",
      "FX"
     ],
     "bull_case": [
-     "Score of 63.8/100 indicates favorable modeled factors.",
      "Gaming",
      "Entertainment"
     ],
@@ -3849,7 +4080,7 @@
     },
     "score": 63.8,
     "symbol": "SONY",
-    "timestamp": "2026-11-22T17:58:10.589366+00:00",
+    "timestamp": "2026-11-23T11:11:58.614397+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 97.69,
@@ -3860,11 +4091,11 @@
      },
      "scenarios": [
       {
-       "fair_value": 48.34,
-       "growth_pct": 0,
+       "fair_value": 63.27,
+       "growth_pct": -1.0,
        "label": "Bear",
-       "multiple": 9.0,
-       "upside_pct": -47.1
+       "multiple": 11.9,
+       "upside_pct": -30.7
       },
       {
        "fair_value": 97.69,
@@ -3882,11 +4113,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "SU.PA": {
    "analysis": {
+    "band": "Neutral",
     "breakdown": {
      "balance_sheet": 69,
      "cash_flow": 51,
@@ -3900,6 +4132,12 @@
     "currency": "EUR",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 12.0,
      "operating_margin_pct": 18.0,
      "revenue_growth_pct": 11.0,
@@ -3909,8 +4147,11 @@
     "macro_sensitivity": "Moderate",
     "market": "Euronext Paris",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": 1.3,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 29.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -3965,8 +4206,8 @@
       "Industrial cycle"
      ],
      "bull": [
-      "Revenue growth is 11.0% from the tracked fundamental source.",
-      "Operating margin is 18.0% and free-cash-flow margin is 12.0%.",
+      "Revenue growth is 11.0% (Seed value (not live)).",
+      "Operating margin is 18.0% (Seed value (not live)) and free-cash-flow margin is 12.0% (Seed value (not live)).",
       "Electrification"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -4004,17 +4245,18 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Neutral",
     "bear_case": [
+     "Score of 63.5/100 (Neutral band): modeled factors are mixed.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "Industrial cycle"
     ],
     "bull_case": [
-     "Score of 63.5/100 indicates favorable modeled factors.",
      "Electrification",
      "Data centres"
     ],
@@ -4034,7 +4276,7 @@
     },
     "score": 63.5,
     "symbol": "SU.PA",
-    "timestamp": "2026-11-22T17:58:10.589306+00:00",
+    "timestamp": "2026-11-23T11:11:58.614297+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 272.84,
@@ -4067,11 +4309,12 @@
       }
      ]
     },
-    "verdict": "HOLD"
+    "verdict": "NEUTRAL"
    }
   },
   "TSLA": {
    "analysis": {
+    "band": "Low score",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 44,
@@ -4085,6 +4328,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 7.0,
      "operating_margin_pct": 8.0,
      "revenue_growth_pct": 9.0,
@@ -4094,8 +4343,11 @@
     "macro_sensitivity": "High",
     "market": "NASDAQ",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.8,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 70.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -4150,8 +4402,8 @@
       "Competition"
      ],
      "bull": [
-      "Revenue growth is 9.0% from the tracked fundamental source.",
-      "Operating margin is 8.0% and free-cash-flow margin is 7.0%.",
+      "Revenue growth is 9.0% (Seed value (not live)).",
+      "Operating margin is 8.0% (Seed value (not live)) and free-cash-flow margin is 7.0% (Seed value (not live)).",
       "Energy storage"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -4189,17 +4441,18 @@
       }
      ]
     },
-    "verdict": "AVOID"
+    "verdict": "LOW_SCORE"
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Low score",
     "bear_case": [
+     "Score of 58.3/100 (Low score band): few modeled factors are favorable.",
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Valuation",
      "Competition"
     ],
     "bull_case": [
-     "Score of 58.3/100 indicates favorable modeled factors.",
      "Energy storage",
      "Autonomy"
     ],
@@ -4219,7 +4472,7 @@
     },
     "score": 58.3,
     "symbol": "TSLA",
-    "timestamp": "2026-11-22T17:58:10.589419+00:00",
+    "timestamp": "2026-11-23T11:11:58.614465+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 264.43,
@@ -4252,11 +4505,12 @@
       }
      ]
     },
-    "verdict": "AVOID"
+    "verdict": "LOW_SCORE"
    }
   },
   "TSM": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 77,
@@ -4270,6 +4524,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 31.0,
      "operating_margin_pct": 47.0,
      "revenue_growth_pct": 20.0,
@@ -4279,8 +4539,11 @@
     "macro_sensitivity": "High",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.3,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 27.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -4335,8 +4598,8 @@
       "Capex cycle"
      ],
      "bull": [
-      "Revenue growth is 20.0% from the tracked fundamental source.",
-      "Operating margin is 47.0% and free-cash-flow margin is 31.0%.",
+      "Revenue growth is 20.0% (Seed value (not live)).",
+      "Operating margin is 47.0% (Seed value (not live)) and free-cash-flow margin is 31.0% (Seed value (not live)).",
       "Leading-edge demand"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -4378,13 +4641,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Geopolitics",
      "Capex cycle"
     ],
     "bull_case": [
-     "Score of 84.6/100 indicates favorable modeled factors.",
+     "Score of 84.6/100 (Watch band): several modeled factors are favorable.",
      "Leading-edge demand",
      "AI chips"
     ],
@@ -4404,7 +4668,7 @@
     },
     "score": 84.6,
     "symbol": "TSM",
-    "timestamp": "2026-11-22T17:58:10.589003+00:00",
+    "timestamp": "2026-11-23T11:11:58.613961+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 232.92,
@@ -4442,6 +4706,7 @@
   },
   "VISA": {
    "analysis": {
+    "band": "Watch",
     "breakdown": {
      "balance_sheet": 92,
      "cash_flow": 100,
@@ -4455,6 +4720,12 @@
     "currency": "USD",
     "data_status": "DEMO_DATASET",
     "fundamental_inputs": {
+     "field_sources": {
+      "free_cash_flow_margin_pct": "Seed value (not live)",
+      "operating_margin_pct": "Seed value (not live)",
+      "revenue_growth_pct": "Seed value (not live)"
+     },
+     "fiscal_year": null,
      "free_cash_flow_margin_pct": 50.0,
      "operating_margin_pct": 67.0,
      "revenue_growth_pct": 10.0,
@@ -4464,8 +4735,11 @@
     "macro_sensitivity": "Low",
     "market": "NYSE",
     "market_inputs": {
+     "balance_sheet_source": "Seed value (not live)",
      "history": null,
      "momentum_source": "Seed value (not live)",
+     "net_debt_to_ebitda": -0.8,
+     "pe_note": "Live P/E withheld: price is not live.",
      "pe_ratio": 31.0,
      "pe_source": "Seed value (not live)",
      "sentiment_source": "Seed value (not live)"
@@ -4520,8 +4794,8 @@
       "Consumer slowdown"
      ],
      "bull": [
-      "Revenue growth is 10.0% from the tracked fundamental source.",
-      "Operating margin is 67.0% and free-cash-flow margin is 50.0%.",
+      "Revenue growth is 10.0% (Seed value (not live)).",
+      "Operating margin is 67.0% (Seed value (not live)) and free-cash-flow margin is 50.0% (Seed value (not live)).",
       "Cashless payments"
      ],
      "invalidation": "The thesis is weakened materially if growth, cash generation or balance-sheet quality deteriorate versus the tracked assumptions.",
@@ -4563,13 +4837,14 @@
    },
    "committee": {
     "approval_state": "HUMAN_DECISION_REQUIRED",
+    "band": "Watch",
     "bear_case": [
      "Valuation and expectation risk can overwhelm strong fundamentals.",
      "Regulation",
      "Consumer slowdown"
     ],
     "bull_case": [
-     "Score of 84.7/100 indicates favorable modeled factors.",
+     "Score of 84.7/100 (Watch band): several modeled factors are favorable.",
      "Cashless payments",
      "Cross-border recovery"
     ],
@@ -4589,7 +4864,7 @@
     },
     "score": 84.7,
     "symbol": "VISA",
-    "timestamp": "2026-11-22T17:58:10.588521+00:00",
+    "timestamp": "2026-11-23T11:11:58.613623+00:00",
     "valuation": {
      "base_case": {
       "fair_value": 305.03,
@@ -4628,7 +4903,7 @@
  },
  "label": "DEMO_DATASET",
  "macro": {
-  "disclaimer": "Macro labels are decision-support signals, not forecasts.",
+  "disclaimer": "These are fixed reminders of what to watch, written into the tool. They are not computed from current rates, growth or FX data and are not an assessment or forecast.",
   "drivers": [
    {
     "direction": "WATCH",
@@ -4649,7 +4924,9 @@
     "note": "Currency moves can alter reported growth and cross-market returns."
    }
   ],
-  "regime": "NEUTRAL"
+  "label": "Static context notes (not computed from data)",
+  "regime": "NOT_ASSESSED",
+  "status": "STATIC_PLACEHOLDER"
  },
  "notice": "Illustrative seed data bundled with the static site. Prices, ratios and scores are not live and must not be used for investment decisions.",
  "portfolio": {
@@ -4695,12 +4972,13 @@
  "risk": {
   "max_drawdown_pct": -0.4,
   "notice": "Calculated on an illustrative return series until real portfolio history is stored.",
-  "sharpe": 1814.19,
+  "sharpe": 7.2,
   "source": "ILLUSTRATIVE_RETURNS",
   "volatility_pct": 5.69
  },
  "scanner": [
   {
+   "band": "High score",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 82,
@@ -4713,6 +4991,12 @@
    "change_pct": 1.71,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 35.0,
     "operating_margin_pct": 62.0,
     "revenue_growth_pct": 28.0,
@@ -4722,8 +5006,11 @@
    "macro_sensitivity": "High",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -1.0,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 45.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4734,9 +5021,10 @@
    "price_status": "DEMO",
    "score": 88.6,
    "symbol": "NVDA",
-   "verdict": "BUY"
+   "verdict": "HIGH_SCORE"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 100,
@@ -4749,6 +5037,12 @@
    "change_pct": 0.61,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 50.0,
     "operating_margin_pct": 67.0,
     "revenue_growth_pct": 10.0,
@@ -4758,8 +5052,11 @@
    "macro_sensitivity": "Low",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.8,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 31.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4773,6 +5070,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 77,
@@ -4785,6 +5083,12 @@
    "change_pct": 1.18,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 31.0,
     "operating_margin_pct": 47.0,
     "revenue_growth_pct": 20.0,
@@ -4794,8 +5098,11 @@
    "macro_sensitivity": "High",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.3,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 27.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4809,6 +5116,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 76,
@@ -4821,6 +5129,12 @@
    "change_pct": 1.22,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 30.0,
     "operating_margin_pct": 38.0,
     "revenue_growth_pct": 18.0,
@@ -4830,8 +5144,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.5,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 24.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4845,6 +5162,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 78,
@@ -4857,6 +5175,12 @@
    "change_pct": 1.05,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 32.0,
     "operating_margin_pct": 44.0,
     "revenue_growth_pct": 14.0,
@@ -4866,8 +5190,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.2,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 35.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4881,6 +5208,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 83,
     "cash_flow": 62,
@@ -4893,6 +5221,12 @@
    "change_pct": 0.95,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 20.0,
     "operating_margin_pct": 34.0,
     "revenue_growth_pct": 24.0,
@@ -4902,8 +5236,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.5,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 42.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4917,6 +5254,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 65,
@@ -4929,6 +5267,12 @@
    "change_pct": 0.76,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 22.0,
     "operating_margin_pct": 32.0,
     "revenue_growth_pct": 13.0,
@@ -4938,8 +5282,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.6,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 25.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4953,6 +5300,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 70,
     "cash_flow": 73,
@@ -4965,6 +5313,12 @@
    "change_pct": 1.05,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 28.0,
     "operating_margin_pct": 42.0,
     "revenue_growth_pct": 17.0,
@@ -4974,8 +5328,11 @@
    "macro_sensitivity": "High",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 1.2,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 32.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -4989,6 +5346,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 71,
@@ -5001,6 +5359,12 @@
    "change_pct": 0.82,
    "currency": "EUR",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 27.0,
     "operating_margin_pct": 32.0,
     "revenue_growth_pct": 12.0,
@@ -5010,8 +5374,11 @@
    "macro_sensitivity": "High",
    "market": "Euronext Amsterdam",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.1,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 31.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5025,6 +5392,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Watch",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 46,
@@ -5037,6 +5405,12 @@
    "change_pct": -0.3,
    "currency": "GHS",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 8.0,
     "operating_margin_pct": 25.0,
     "revenue_growth_pct": 18.0,
@@ -5046,8 +5420,11 @@
    "macro_sensitivity": "High",
    "market": "GSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.0,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 6.5,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5061,6 +5438,7 @@
    "verdict": "WATCH"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 59,
@@ -5073,6 +5451,12 @@
    "change_pct": 0.31,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 18.0,
     "operating_margin_pct": 30.0,
     "revenue_growth_pct": 7.0,
@@ -5082,8 +5466,11 @@
    "macro_sensitivity": "High",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.0,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 13.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5094,9 +5481,10 @@
    "price_status": "DEMO",
    "score": 71.6,
    "symbol": "JPM",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 88,
     "cash_flow": 67,
@@ -5109,6 +5497,12 @@
    "change_pct": 0.73,
    "currency": "EUR",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 24.0,
     "operating_margin_pct": 28.0,
     "revenue_growth_pct": 10.0,
@@ -5118,8 +5512,11 @@
    "macro_sensitivity": "Moderate",
    "market": "Xetra",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.2,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 41.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5130,9 +5527,10 @@
    "price_status": "DEMO",
    "score": 70.4,
    "symbol": "SAP",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 88,
     "cash_flow": 69,
@@ -5145,6 +5543,12 @@
    "change_pct": 0.68,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 25.0,
     "operating_margin_pct": 18.0,
     "revenue_growth_pct": 10.0,
@@ -5154,8 +5558,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.2,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 34.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5166,9 +5573,10 @@
    "price_status": "DEMO",
    "score": 69.5,
    "symbol": "CRM",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 87,
     "cash_flow": 67,
@@ -5181,6 +5589,12 @@
    "change_pct": 0.44,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 24.0,
     "operating_margin_pct": 32.0,
     "revenue_growth_pct": 6.0,
@@ -5190,8 +5604,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.3,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 34.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5202,9 +5619,10 @@
    "price_status": "DEMO",
    "score": 68.9,
    "symbol": "AAPL",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 57,
@@ -5217,6 +5635,12 @@
    "change_pct": 0.18,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 16.0,
     "operating_margin_pct": 18.0,
     "revenue_growth_pct": 5.0,
@@ -5226,8 +5650,11 @@
    "macro_sensitivity": "Low",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.7,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 22.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5238,9 +5665,10 @@
    "price_status": "DEMO",
    "score": 65.9,
    "symbol": "BRK-B",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 81,
     "cash_flow": 61,
@@ -5253,6 +5681,12 @@
    "change_pct": 0.12,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 19.0,
     "operating_margin_pct": 25.0,
     "revenue_growth_pct": 3.0,
@@ -5262,8 +5696,11 @@
    "macro_sensitivity": "Low",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.6,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 15.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5274,9 +5711,10 @@
    "price_status": "DEMO",
    "score": 64.7,
    "symbol": "JNJ",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 85,
     "cash_flow": 47,
@@ -5289,6 +5727,12 @@
    "change_pct": 0.94,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 9.0,
     "operating_margin_pct": 11.0,
     "revenue_growth_pct": 11.0,
@@ -5298,8 +5742,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.4,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 39.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5310,9 +5757,10 @@
    "price_status": "DEMO",
    "score": 64.5,
    "symbol": "AMZN",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 87,
     "cash_flow": 47,
@@ -5325,6 +5773,12 @@
    "change_pct": 0.41,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 9.0,
     "operating_margin_pct": 12.0,
     "revenue_growth_pct": 7.0,
@@ -5334,8 +5788,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.3,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 17.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5346,9 +5803,10 @@
    "price_status": "DEMO",
    "score": 63.8,
    "symbol": "SONY",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 69,
     "cash_flow": 51,
@@ -5361,6 +5819,12 @@
    "change_pct": 0.66,
    "currency": "EUR",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 12.0,
     "operating_margin_pct": 18.0,
     "revenue_growth_pct": 11.0,
@@ -5370,8 +5834,11 @@
    "macro_sensitivity": "Moderate",
    "market": "Euronext Paris",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 1.3,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 29.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5382,9 +5849,10 @@
    "price_status": "DEMO",
    "score": 63.5,
    "symbol": "SU.PA",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 74,
     "cash_flow": 59,
@@ -5397,6 +5865,12 @@
    "change_pct": -0.22,
    "currency": "EUR",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 18.0,
     "operating_margin_pct": 27.0,
     "revenue_growth_pct": 6.0,
@@ -5406,8 +5880,11 @@
    "macro_sensitivity": "Moderate",
    "market": "Euronext Paris",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 1.0,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 23.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5418,9 +5895,10 @@
    "price_status": "DEMO",
    "score": 63.2,
    "symbol": "MC.PA",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 85,
     "cash_flow": 43,
@@ -5433,6 +5911,12 @@
    "change_pct": 0.37,
    "currency": "EUR",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 6.0,
     "operating_margin_pct": 10.0,
     "revenue_growth_pct": 8.0,
@@ -5442,8 +5926,11 @@
    "macro_sensitivity": "Moderate",
    "market": "Euronext Paris",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 0.4,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 26.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5454,9 +5941,10 @@
    "price_status": "DEMO",
    "score": 61.6,
    "symbol": "AIR.PA",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Neutral",
    "breakdown": {
     "balance_sheet": 61,
     "cash_flow": 62,
@@ -5469,6 +5957,12 @@
    "change_pct": 0.09,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 20.0,
     "operating_margin_pct": 31.0,
     "revenue_growth_pct": 5.0,
@@ -5478,8 +5972,11 @@
    "macro_sensitivity": "Low",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 1.7,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 26.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5490,9 +5987,10 @@
    "price_status": "DEMO",
    "score": 61.2,
    "symbol": "KO",
-   "verdict": "HOLD"
+   "verdict": "NEUTRAL"
   },
   {
+   "band": "Low score",
    "breakdown": {
     "balance_sheet": 92,
     "cash_flow": 44,
@@ -5505,6 +6003,12 @@
    "change_pct": 1.31,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 7.0,
     "operating_margin_pct": 8.0,
     "revenue_growth_pct": 9.0,
@@ -5514,8 +6018,11 @@
    "macro_sensitivity": "High",
    "market": "NASDAQ",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": -0.8,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 70.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5526,9 +6033,10 @@
    "price_status": "DEMO",
    "score": 58.3,
    "symbol": "TSLA",
-   "verdict": "AVOID"
+   "verdict": "LOW_SCORE"
   },
   {
+   "band": "Low score",
    "breakdown": {
     "balance_sheet": 34,
     "cash_flow": 62,
@@ -5541,6 +6049,12 @@
    "change_pct": 0.52,
    "currency": "USD",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 20.0,
     "operating_margin_pct": 31.0,
     "revenue_growth_pct": 9.0,
@@ -5550,8 +6064,11 @@
    "macro_sensitivity": "Moderate",
    "market": "NYSE",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 3.2,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 35.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5562,9 +6079,10 @@
    "price_status": "DEMO",
    "score": 57.8,
    "symbol": "ORCL",
-   "verdict": "AVOID"
+   "verdict": "LOW_SCORE"
   },
   {
+   "band": "Low score",
    "breakdown": {
     "balance_sheet": 60,
     "cash_flow": 51,
@@ -5577,6 +6095,12 @@
    "change_pct": -0.14,
    "currency": "CHF",
    "fundamental_inputs": {
+    "field_sources": {
+     "free_cash_flow_margin_pct": "Seed value (not live)",
+     "operating_margin_pct": "Seed value (not live)",
+     "revenue_growth_pct": "Seed value (not live)"
+    },
+    "fiscal_year": null,
     "free_cash_flow_margin_pct": 12.0,
     "operating_margin_pct": 17.0,
     "revenue_growth_pct": 4.0,
@@ -5586,8 +6110,11 @@
    "macro_sensitivity": "Low",
    "market": "SIX Swiss Exchange",
    "market_inputs": {
+    "balance_sheet_source": "Seed value (not live)",
     "history": null,
     "momentum_source": "Seed value (not live)",
+    "net_debt_to_ebitda": 1.8,
+    "pe_note": "Live P/E withheld: price is not live.",
     "pe_ratio": 20.0,
     "pe_source": "Seed value (not live)",
     "sentiment_source": "Seed value (not live)"
@@ -5598,7 +6125,7 @@
    "price_status": "DEMO",
    "score": 55.7,
    "symbol": "NESN.SW",
-   "verdict": "AVOID"
+   "verdict": "LOW_SCORE"
   }
  ]
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { api, cls, describeError, Header, isAbort, Kpi, LineChartSvg, localToday, money, Notice, num, pct, signedIn, statusCls, when, type Mode } from "./lib";
+import { type ChartLevel, type ChartSeries, api, cls, describeError, Header, isAbort, Kpi, LineChartSvg, localToday, money, Notice, num, pct, signedIn, statusCls, when, type Mode } from "./lib";
 
 type AssetOption = { symbol: string; name: string };
 type Stats = { volatility_1y_pct: number | null; momentum_12_1_pct: number | null; return_1y_pct: number | null; vs_200d_average_pct: number | null; max_drawdown_1y_pct: number | null; observations: number };
@@ -46,14 +46,15 @@ function AssetSelect({ assets, value, onChange }: { assets: AssetOption[]; value
 // ---------- Price history panel (asset detail) ----------
 export function PriceHistoryPanel({ symbol, mode }: { symbol: string; mode: Mode }) {
   const [range, setRange] = useState("1y");
-  const h = useLoad<{ points: { date: string; close: number }[]; currency: string; provider: string; adjusted?: boolean; statistics: Stats }>(mode.kind === "api" ? `/api/assets/${encodeURIComponent(symbol)}/history?range=${range}` : null);
+  const [show, setShow] = useState({ trend: true, averages: true, levels: true });
+  const h = useLoad<{ points: { date: string; close: number }[]; currency: string; provider: string; adjusted?: boolean; statistics: Stats; overlays?: Overlays }>(mode.kind === "api" ? `/api/assets/${encodeURIComponent(symbol)}/history?range=${range}` : null);
   if (mode.kind !== "api") return <p className="tiny">Price history is only shown when the API retrieves it live. None is displayed in demo mode.</p>;
   return <div className="box span-all">
     <div className="row-between"><h4>Price history{h.data ? (h.data.adjusted ? " (adjusted close)" : " (close, not adjusted for dividends)") : ""}</h4><div className="seg" role="group" aria-label="History range">{["1y", "2y", "5y"].map(r => <button key={r} className={r === range ? "on" : ""} aria-pressed={r === range} onClick={() => setRange(r)}>{r}</button>)}</div></div>
     {h.loading && <p className="muted">Loading history…</p>}
     {h.error && <p className="muted">History unavailable: {h.error}</p>}
     {h.data && !h.loading && <>
-      <LineChartSvg labels={h.data.points.map(p => p.date)} series={[{ name: symbol, values: h.data.points.map(p => p.close), color: "#3aa0ff" }]} height={180} />
+      <TechnicalChart symbol={symbol} currency={h.data.currency} points={h.data.points} overlays={h.data.overlays} show={show} setShow={setShow} />
       <div className="stats">
         <span>1y return <b className={cls(h.data.statistics.return_1y_pct)}>{pct(h.data.statistics.return_1y_pct)}</b></span>
         <span>12-1 momentum <b className={cls(h.data.statistics.momentum_12_1_pct)}>{pct(h.data.statistics.momentum_12_1_pct)}</b></span>
@@ -64,6 +65,54 @@ export function PriceHistoryPanel({ symbol, mode }: { symbol: string; mode: Mode
       <p className="tiny">{h.data.provider} · {h.data.points.length} daily closes · {h.data.currency}{h.data.adjusted === false ? " · not adjusted for dividends or splits" : ""}</p>
     </>}
   </div>;
+}
+
+// ---------- Technical overlays ----------
+type Level = { level: number; touches: number; strength: string; last_touched: string; distance_pct: number };
+type Overlays = {
+  trend: { values: number[]; upper: number[]; lower: number[]; annualised_slope_pct: number; r_squared: number; direction: string; method: string } | null;
+  sma50: (number | null)[]; sma200: (number | null)[];
+  levels: { support: Level[]; resistance: Level[]; method: string };
+  disclaimer: string;
+};
+type Show = { trend: boolean; averages: boolean; levels: boolean };
+
+function TechnicalChart({ symbol, currency, points, overlays, show, setShow }: { symbol: string; currency: string; points: { date: string; close: number }[]; overlays?: Overlays; show: Show; setShow: (s: Show) => void }) {
+  const series: ChartSeries[] = [{ name: `${symbol} close`, values: points.map(p => p.close), color: "#3aa0ff" }];
+  const o = overlays;
+  if (o && show.trend && o.trend) series.push({ name: "Trend line", values: o.trend.values, color: "#f5b937", dash: "2 0", width: 1.6 });
+  if (o && show.averages) {
+    if (o.sma50.some(v => v != null)) series.push({ name: "50-day average", values: o.sma50, color: "#b29cff", width: 1.4 });
+    if (o.sma200.some(v => v != null)) series.push({ name: "200-day average", values: o.sma200, color: "#9ab1ca", width: 1.4, dash: "4 3" });
+  }
+  const levels: ChartLevel[] = o && show.levels ? [
+    ...o.levels.support.slice(0, 2).map((l, i) => ({ value: l.level, label: `Support ${i + 1}`, color: "#22e0aa" })),
+    ...o.levels.resistance.slice(0, 2).map((l, i) => ({ value: l.level, label: `Resistance ${i + 1}`, color: "#ff6b7a" })),
+  ] : [];
+  const band = o && show.trend && o.trend ? { upper: o.trend.upper, lower: o.trend.lower, color: "#f5b937", name: "Trend band (±2σ)" } : undefined;
+  const toggle = (k: keyof Show) => setShow({ ...show, [k]: !show[k] });
+  return <>
+    {o && <div className="seg overlay-toggles" role="group" aria-label="Chart overlays">
+      <button className={show.trend ? "on" : ""} aria-pressed={show.trend} onClick={() => toggle("trend")}>Trend line</button>
+      <button className={show.averages ? "on" : ""} aria-pressed={show.averages} onClick={() => toggle("averages")}>50/200-day averages</button>
+      <button className={show.levels ? "on" : ""} aria-pressed={show.levels} onClick={() => toggle("levels")}>Support &amp; resistance</button>
+    </div>}
+    <LineChartSvg labels={points.map(p => p.date)} series={series} levels={levels} band={band} height={240} />
+    {o && <div className="technicals">
+      {o.trend && show.trend && <p className="small">Trend: <b className={o.trend.direction === "UP" ? "up" : o.trend.direction === "DOWN" ? "down" : ""}>{o.trend.direction.toLowerCase()}</b>, about {pct(o.trend.annualised_slope_pct)} a year over this period. Fit quality R² {num(o.trend.r_squared, 2)}{o.trend.r_squared < 0.3 ? " (weak: prices did not follow a steady trend)" : ""}.</p>}
+      {show.levels && <div className="table-wrap"><table className="table compact">
+        <thead><tr><th>Level</th><th className="r">Price ({currency})</th><th className="r">From last close</th><th>Strength</th><th>Last touched</th></tr></thead>
+        <tbody>
+          {o.levels.resistance.slice(0, 2).reverse().map((l, i, arr) => <tr key={`r${l.level}`}><td className="down">Resistance {arr.length - i}</td><td className="r">{num(l.level, 2)}</td><td className="r up">{pct(l.distance_pct)}</td><td>{l.strength.toLowerCase()} ({l.touches} touch{l.touches === 1 ? "" : "es"})</td><td>{l.last_touched}</td></tr>)}
+          {o.levels.support.slice(0, 2).map((l, i) => <tr key={`s${l.level}`}><td className="up">Support {i + 1}</td><td className="r">{num(l.level, 2)}</td><td className="r down">{pct(l.distance_pct)}</td><td>{l.strength.toLowerCase()} ({l.touches} touch{l.touches === 1 ? "" : "es"})</td><td>{l.last_touched}</td></tr>)}
+          {!o.levels.support.length && !o.levels.resistance.length && <tr><td colSpan={5} className="muted">No clear support or resistance levels in this period.</td></tr>}
+        </tbody></table></div>}
+      <details className="tiny"><summary>How these lines are calculated</summary>
+        <ul>{o.trend && <li>{o.trend.method}</li>}<li>Moving averages: mean of the last 50 / 200 daily closes (shown once enough history exists).</li><li>{o.levels.method}</li></ul>
+      </details>
+      <p className="tiny warn-text">{o.disclaimer}</p>
+    </div>}
+  </>;
 }
 
 // ---------- Save to journal (asset detail) ----------

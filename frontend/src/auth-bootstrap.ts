@@ -65,7 +65,57 @@ function legalText(key: LegalKey) {
   return wrap;
 }
 
-function gate(message = "", showDemo = !!message) {
+/** Public landing page shown to visitors without a session. Static copy only (no user data). */
+function landing() {
+  if (document.getElementById("ii-landing")) return;
+  const page = document.createElement("main");
+  page.id = "ii-landing";
+  page.innerHTML = `
+    <header class="ii-land-nav">
+      <div class="ii-land-brand"><span class="ii-logo" aria-hidden="true">II</span><b>Investment Intelligence</b></div>
+      <button type="button" class="ii-land-link" data-go="signin">Sign in</button>
+    </header>
+    <section class="ii-land-hero">
+      <div class="ii-eyebrow">RESEARCH · CHALLENGE · DECIDE</div>
+      <h1>Investment research you can check, not just trust.</h1>
+      <p class="ii-land-lead">Scores, price history, trend and support/resistance lines, an AI research assistant that cites its evidence, and a decision journal. Every figure shows where it comes from and whether it is live.</p>
+      <div class="ii-land-cta">
+        <button type="button" class="ii-primary ii-land-start" data-go="signup">Start now. It's free</button>
+        <button type="button" class="ii-land-link" data-go="signin">I already have an account</button>
+      </div>
+      <p class="ii-land-fine">Research and education tool. Not investment advice, not a broker, and no real orders are ever placed.</p>
+    </section>
+    <section class="ii-land-grid" aria-label="Features">
+      <article><h3>Transparent scores</h3><p>A factor model over growth, margins, cash flow, valuation and momentum, with every input's source shown: SEC filings, live prices, or a clearly labelled fallback.</p></article>
+      <article><h3>Charts with context</h3><p>Price history with a trend line, 50/200-day averages and support/resistance levels, each explained. These describe past prices, not forecasts.</p></article>
+      <article><h3>AI that shows its work</h3><p>Ask questions and get answers built only from the platform's evidence, with clickable citations. Unsupported claims are flagged.</p></article>
+      <article><h3>Practice before risking money</h3><p>A simulated 100,000 account, backtests on real history, alerts and a journal that measures how your decisions actually turned out.</p></article>
+    </section>
+    <section class="ii-land-steps">
+      <h2>How it works</h2>
+      <ol><li><b>Create a free account.</b> Your holdings, journal and practice trades stay private to you.</li><li><b>Research.</b> Compare assets, read the evidence, check the chart levels.</li><li><b>Decide and record.</b> Write down your thesis, practise with simulated trades, and review the outcome later.</li></ol>
+      <button type="button" class="ii-primary ii-land-start" data-go="signup">Start now</button>
+    </section>
+    <footer class="ii-land-foot">
+      <span>Drafts pending legal review:</span>
+      <button type="button" class="ii-land-link" data-legal-page="terms">Terms</button>
+      <button type="button" class="ii-land-link" data-legal-page="privacy">Privacy notice</button>
+      <button type="button" class="ii-land-link" data-legal-page="risk">Risk disclosure</button>
+    </footer>
+    <div id="ii-land-legal" class="ii-legal hidden" role="document"><button type="button" id="ii-land-legal-close" class="ii-switch">Close</button><div id="ii-land-legal-body"></div></div>`;
+  document.body.appendChild(page);
+  page.querySelectorAll<HTMLButtonElement>("[data-go]").forEach(b => {
+    b.onclick = () => { page.remove(); gate("", false, b.dataset.go === "signup"); };
+  });
+  const legalBox = document.getElementById("ii-land-legal")!, legalBody = document.getElementById("ii-land-legal-body")!;
+  page.querySelectorAll<HTMLButtonElement>("[data-legal-page]").forEach(b => {
+    b.onclick = () => { legalBody.replaceChildren(legalText(b.dataset.legalPage as LegalKey)); legalBox.classList.remove("hidden"); document.getElementById("ii-land-legal-close")!.focus(); legalBox.scrollIntoView({ behavior: "smooth" }); };
+  });
+  document.getElementById("ii-land-legal-close")!.onclick = () => legalBox.classList.add("hidden");
+  (page.querySelector(".ii-land-start") as HTMLButtonElement).focus();
+}
+
+function gate(message = "", showDemo = !!message, startInSignup = false) {
   if (document.getElementById("ii-auth-gate")) return;
   const backdrop = document.createElement("div");
   backdrop.id = "ii-auth-gate";
@@ -118,6 +168,9 @@ function gate(message = "", showDemo = !!message) {
     switcher.textContent = signup ? "Already have an account? Sign in" : "New here? Create an account";
     setError("");
   };
+
+  if (startInSignup) switcher.click();
+  $<HTMLInputElement>(startInSignup ? "ii-name" : "ii-email").focus();
 
   backdrop.querySelectorAll<HTMLButtonElement>("[data-legal]").forEach(b => {
     b.onclick = () => { legalBody.replaceChildren(legalText(b.dataset.legal as LegalKey)); legal.classList.remove("hidden"); $("ii-legal-close").focus(); };
@@ -181,7 +234,7 @@ async function boot() {
   if (STATIC_HOST) return;
   let token: string | null = null;
   try { token = localStorage.getItem(tokenKey); } catch { /* storage unavailable */ }
-  if (!token) { gate(); return; }
+  if (!token) { landing(); return; }
   try {
     const response = await api("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
     if (response.status === 401) { clearSession(); gate(); return; }

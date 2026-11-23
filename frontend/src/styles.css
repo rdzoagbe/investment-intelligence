@@ -214,3 +214,10 @@ details summary{cursor:pointer;color:#9fc3e6;font-size:13px;margin:6px 0}
 .filters label.inline{display:flex}
 .nav-item:focus-visible,.btn:focus-visible,.seg button:focus-visible,.linklike:focus-visible,.modal-close:focus-visible,.table tbody tr:focus-visible{outline:2px solid #58adff;outline-offset:2px}
 .searchbox:focus-within{border-color:#2c94ff}
+
+/* Chart overlays */
+.overlay-toggles{margin:6px 0 2px;flex-wrap:wrap}
+.chartfig figcaption{flex-wrap:wrap}
+.chartfig figcaption i.dashed{background-image:repeating-linear-gradient(90deg,transparent 0 3px,#071e35 3px 5px)}
+.technicals .table{margin-top:6px}
+.technicals details ul{margin:4px 0;padding-left:18px}

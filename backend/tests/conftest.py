@@ -23,3 +23,4 @@ def isolated_db(tmp_path, monkeypatch):
     ratelimit.reset()
     history._CACHE.clear()
     market_data._CACHE.clear()
+    market_data._FX_CACHE.clear()

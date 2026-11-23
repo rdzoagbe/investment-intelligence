@@ -14,6 +14,7 @@ from . import auth as auth_store
 from .auth import authenticate, create_user, issue_token, public_user, user_from_token
 import hmac
 
+from . import technicals
 from . import assistant, db, llm, market_data as market_data_module, monitoring, ratelimit, userdata
 from .backtest import BacktestConfig, run_backtest, trend_backtest
 from .history import price_history, statistics
@@ -171,7 +172,9 @@ def market_data() -> dict[str, object]: return {"quotes": live_quotes(), "status
 def investment_scanner(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0), market: str | None = None, verdict: str | None = None, min_score: float = Query(0, ge=0, le=100)) -> dict[str, object]:
     ranked = scanner(100)
     if market: ranked = [x for x in ranked if str(x["market"]).lower() == market.strip().lower()]
-    if verdict: ranked = [x for x in ranked if str(x["verdict"]).upper() == verdict.strip().upper()]
+    if verdict:
+        wanted = re.sub(r"[^A-Z]+", "_", verdict.strip().upper()).strip("_")  # accepts "High score" or "HIGH_SCORE"
+        ranked = [x for x in ranked if str(x["verdict"]).upper() == wanted]
     ranked = [x for x in ranked if float(x["score"]) >= min_score]
     return {"items": ranked[offset:offset + limit], "total": len(ranked), "offset": offset, "limit": limit, "universe_size": len(ASSETS)}
 
@@ -248,7 +251,7 @@ def _history_or_error(symbol: str, range_: str):
 @app.get("/api/assets/{symbol}/history")
 def asset_history(symbol: str, range: str = Query("1y")) -> dict[str, object]:  # noqa: A002 - public query name
     history = _history_or_error(symbol, range)
-    return {**history.as_dict(), "statistics": statistics(history)}
+    return {**history.as_dict(), "statistics": statistics(history), "overlays": technicals.overlays(history.closes, history.dates)}
 
 
 @app.get("/api/assets/{symbol}/backtest")
@@ -275,8 +278,8 @@ def my_holding_delete(symbol: str, user: dict[str, object] = Depends(current_use
     userdata.delete_holding(int(user["id"]), symbol)
     return {"status": "deleted"}
 @app.get("/api/me/journal")
-def my_journal(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
-    return {"entries": userdata.list_journal(int(user["id"])), "decisions": sorted(userdata.JOURNAL_DECISIONS), "outcomes": sorted(userdata.JOURNAL_OUTCOMES)}
+def my_journal(limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0), user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return {"entries": userdata.list_journal(int(user["id"]), limit, offset), "decisions": sorted(userdata.JOURNAL_DECISIONS), "outcomes": sorted(userdata.JOURNAL_OUTCOMES)}
 @app.post("/api/me/journal")
 def my_journal_add(body: JournalIn, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
     return _user_call(userdata.add_journal, int(user["id"]), body.symbol, body.decision, body.thesis, body.review_on)
@@ -284,8 +287,8 @@ def my_journal_add(body: JournalIn, user: dict[str, object] = Depends(current_us
 def my_journal_outcome(entry_id: int, body: OutcomeIn, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
     return _user_call(userdata.set_outcome, int(user["id"]), entry_id, body.outcome)
 @app.get("/api/me/paper")
-def my_paper(user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
-    return _user_call(userdata.paper_account, int(user["id"]))
+def my_paper(limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0), user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
+    return _user_call(userdata.paper_account, int(user["id"]), limit, offset)
 @app.post("/api/me/paper/orders")
 def my_paper_order(body: PaperOrder, user: dict[str, object] = Depends(current_user)) -> dict[str, object]:
     return _user_call(userdata.paper_order, int(user["id"]), body.symbol, body.side, body.quantity)

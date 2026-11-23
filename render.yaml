@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     region: frankfurt
-    buildCommand: "python -m pip install -r backend/requirements.txt && cd frontend && npm install && npm run build && cd .. && rm -rf backend/static && cp -R frontend/dist backend/static"
+    buildCommand: "python -m pip install -r backend/requirements.txt && cd frontend && npm ci && npm run build && cd .. && rm -rf backend/static && cp -R frontend/dist backend/static"
     startCommand: "python backend/run.py"
     healthCheckPath: /api/health
     envVars:
