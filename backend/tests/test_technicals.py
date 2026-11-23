@@ -49,3 +49,29 @@ def test_overlays_shape_and_moving_averages():
     assert len(o["sma50"]) == 260 and o["sma50"][48] is None and o["sma50"][49] == pytest.approx(25.5)
     assert o["sma200"][199] == pytest.approx(100.5)
     assert "not forecasts" in o["disclaimer"]
+
+
+def test_history_endpoint_includes_overlays(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app import history, market_data
+    from app.main import app
+    monkeypatch.setenv("MARKET_DATA_MODE", "live")
+    n = 300
+    payload = {"chart": {"result": [{"meta": {"currency": "USD"}, "timestamp": [1_700_000_000 + i * 86400 for i in range(n)],
+               "indicators": {"quote": [{"close": [100 + 10 * math.sin(i / 9) for i in range(n)]}], "adjclose": [{"adjclose": [100 + 10 * math.sin(i / 9) for i in range(n)]}]}}]}}
+    monkeypatch.setattr(market_data, "_fetch_json", lambda url, timeout=5.0: payload)
+    history._CACHE.clear()
+    body = TestClient(app).get("/api/assets/MSFT/history?range=2y").json()
+    o = body["overlays"]
+    assert len(o["sma50"]) == len(body["points"]) and o["trend"]["values"]
+    assert o["levels"]["support"] or o["levels"]["resistance"]
+    assert "not forecasts" in o["disclaimer"]
+
+
+def test_scanner_verdict_filter_accepts_band_names():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    by_code = c.get("/api/scanner?limit=100&verdict=HIGH_SCORE").json()["items"]
+    by_name = c.get("/api/scanner?limit=100&verdict=High%20score").json()["items"]
+    assert by_code == by_name and all(i["band"] == "High score" for i in by_name)

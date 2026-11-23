@@ -167,15 +167,15 @@ export function LineChartSvg({ series, labels, height = 220, levels = [], band }
   return <figure className="chartfig">
     <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`Chart: ${series.map(s => s.name).join(", ")}${levels.length ? `; levels ${levels.map(l => l.label).join(", ")}` : ""}`}>
       {[0, 0.5, 1].map(f => <g key={f}><line x1={pad} x2={w - right} y1={8 + f * (h - 30)} y2={8 + f * (h - 30)} className="grid" /><text x={2} y={12 + f * (h - 30)} className="axis">{num(max - f * span, max - min < 10 ? 2 : 0)}</text></g>)}
-      {bandPath && <path d={bandPath} fill={band!.color} opacity={0.12} stroke="none" />}
+      {bandPath && <path d={bandPath} fill={band!.color} opacity={0.07} stroke="none" />}
       {levels.map(l => <g key={l.label}><line x1={pad} x2={w - right} y1={y(l.value)} y2={y(l.value)} stroke={l.color} strokeWidth={1.4} strokeDasharray="6 4" /><text x={w - right + 4} y={y(l.value) + 4} className="axis" fill={l.color}>{num(l.value, 2)}</text></g>)}
       {series.map(s => segments(s.values).map((pts, k) => <polyline key={`${s.name}-${k}`} fill="none" stroke={s.color} strokeWidth={s.width ?? 2} strokeDasharray={s.dash} points={pts} />))}
       {ticks.map(i => <text key={i} x={Math.min(x(i), w - right - 60)} y={h - 4} className="axis">{labels[i]}</text>)}
     </svg>
     {(legendItems.length > 1 || levels.length > 0) && <figcaption>
       {legendItems.map(s => <span key={s.name}><i style={{ background: s.color }} className={s.dash ? "dashed" : ""} />{s.name}</span>)}
-      {levels.length > 0 && <span><i className="dashed" style={{ background: "#22e0aa" }} />Support</span>}
-      {levels.length > 0 && <span><i className="dashed" style={{ background: "#ff6b7a" }} />Resistance</span>}
+      {levels.some(l => l.label.startsWith("Support")) && <span><i className="dashed" style={{ background: "#22e0aa" }} />Support</span>}
+      {levels.some(l => l.label.startsWith("Resistance")) && <span><i className="dashed" style={{ background: "#ff6b7a" }} />Resistance</span>}
     </figcaption>}
   </figure>;
 }

@@ -89,7 +89,8 @@ function TechnicalChart({ symbol, currency, points, overlays, show, setShow }: {
     ...o.levels.support.slice(0, 2).map((l, i) => ({ value: l.level, label: `Support ${i + 1}`, color: "#22e0aa" })),
     ...o.levels.resistance.slice(0, 2).map((l, i) => ({ value: l.level, label: `Resistance ${i + 1}`, color: "#ff6b7a" })),
   ] : [];
-  const band = o && show.trend && o.trend ? { upper: o.trend.upper, lower: o.trend.lower, color: "#f5b937", name: "Trend band (±2σ)" } : undefined;
+  // A channel around a weak fit would look meaningful when it is not, so it is only drawn for R² >= 0.3.
+  const band = o && show.trend && o.trend && o.trend.r_squared >= 0.3 ? { upper: o.trend.upper, lower: o.trend.lower, color: "#f5b937", name: "Trend band (±2σ)" } : undefined;
   const toggle = (k: keyof Show) => setShow({ ...show, [k]: !show[k] });
   return <>
     {o && <div className="seg overlay-toggles" role="group" aria-label="Chart overlays">
