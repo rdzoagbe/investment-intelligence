@@ -15,6 +15,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from dataclasses import asdict, dataclass
 
 from . import db, llm, userdata
@@ -24,8 +25,16 @@ from .intelligence import macro_snapshot
 from .market_data import quote_dict, quote_for_asset
 
 MAX_SYMBOLS = 4
-# First words of company names that are also ordinary English words; these need the full name or ticker.
+# First words of company names that are also ordinary English words; these only match when
+# capitalised and not joined to another word by a hyphen ("Meta-analysis" is not Meta).
 AMBIGUOUS_FIRST_WORDS = {"access", "visa", "oracle", "meta", "apple", "amazon"}
+# Names so common as ordinary words that only the full name or the ticker counts.
+FULL_NAME_ONLY = {"ACCESS": "Access Bank"}
+# Tickers that are also ordinary words (or too short to be safe): these must be written in upper case.
+CASE_SENSITIVE_TICKERS = {"VISA", "ACCESS", "META", "SONY", "SAP", "KO"}
+# Common alternative names, matched case-insensitively as whole words (accents removed).
+ALIASES = {"LLY": ["lilly"], "GOOGL": ["google"], "TSM": ["tsmc"], "KO": ["coke"], "JNJ": ["j&j"],
+           "MC.PA": ["louis vuitton"], "BRK-B": ["brk.b"], "NESN.SW": ["nestle"]}
 SYSTEM_PROMPT = """You are the research assistant inside an investment research tool. You help a user understand the evidence the tool has gathered. You are not a licensed adviser and you do not know the user's full financial situation.
 
 Rules:
@@ -45,7 +54,8 @@ class Evidence:
     title: str
     detail: str
     source: str
-    status: str  # LIVE | DEMO | SEED | USER | RULE_BASED
+    status: str  # LIVE | DEMO | SEED | USER | RULE_BASED | STATIC
+    personal: bool = False  # True for the user's own holdings/journal data
 
 
 class AssistantError(ValueError):
@@ -53,25 +63,54 @@ class AssistantError(ValueError):
 
 
 # ---------- Evidence gathering ----------
-def _mentioned_assets(question: str) -> list[AssetSnapshot]:
-    """Find assets named in the question by ticker, full name, or distinctive first word.
+def _fold(text: str) -> str:
+    """Remove accents so 'Nestle' matches 'Nestlé'."""
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
 
-    Names that are also ordinary words (Apple, Access, Visa...) only match when capitalised.
+
+def _first(pattern: str, text: str, flags: int = 0) -> int | None:
+    m = re.search(pattern, text, flags)
+    return m.start() if m else None
+
+
+def _match_assets(question: str) -> list[AssetSnapshot]:
+    """All assets named in the question, ordered by where they are first mentioned.
+
+    Matches the ticker (upper case required for tickers that are ordinary words), the full
+    name, a distinctive first word, or a known alias. Accents are ignored.
     """
-    found: list[AssetSnapshot] = []
-    lower = question.lower()
-    words = set(re.findall(r"[a-zà-ÿ]+", lower))
-    for asset in ASSETS:
-        name = asset.name
-        first = name.split()[0].lower()
-        ticker_hit = re.search(rf"(?<![A-Za-z]){re.escape(asset.symbol)}(?![A-Za-z.])", question) is not None
-        if first in AMBIGUOUS_FIRST_WORDS:
-            name_hit = re.search(rf"\b{re.escape(name.split()[0])}\b", question) is not None
+    folded = _fold(question)
+    lower = folded.lower()
+    hits: list[tuple[int, int, AssetSnapshot]] = []
+    for order, asset in enumerate(ASSETS):
+        positions: list[int] = []
+        sym = re.escape(asset.symbol)
+        ticker_re = rf"(?<![A-Za-z0-9.\-]){sym}(?![A-Za-z0-9])(?!\.[A-Za-z])(?!-[A-Za-z])"
+        flags = 0 if asset.symbol in CASE_SENSITIVE_TICKERS else re.I
+        positions.append(_first(ticker_re, folded, flags))  # type: ignore[arg-type]
+        name = _fold(asset.name)
+        first = name.split()[0]
+        full_only = FULL_NAME_ONLY.get(asset.symbol)
+        if full_only:
+            positions.append(_first(rf"(?<![\w-]){re.escape(full_only)}(?![\w-])", folded, re.I))  # type: ignore[arg-type]
         else:
-            name_hit = name.lower() in lower or (len(first) > 3 and first in words)
-        if ticker_hit or name_hit:
-            found.append(asset)
-    return found[:MAX_SYMBOLS]
+            positions.append(_first(rf"(?<![\w-]){re.escape(name)}(?![\w-])", folded, re.I))  # type: ignore[arg-type]
+            if first.lower() in AMBIGUOUS_FIRST_WORDS:
+                positions.append(_first(rf"(?<![\w-]){re.escape(first)}(?![\w-])", folded))  # type: ignore[arg-type]
+            elif len(first) > 3:
+                positions.append(_first(rf"(?<![\w-]){re.escape(first.lower())}(?![\w-])", lower))  # type: ignore[arg-type]
+        for alias in ALIASES.get(asset.symbol, []):
+            positions.append(_first(rf"(?<![\w-]){re.escape(alias)}(?![\w-])", lower))  # type: ignore[arg-type]
+        found = [p for p in positions if p is not None]
+        if found:
+            hits.append((min(found), order, asset))
+    hits.sort(key=lambda h: (h[0], h[1]))
+    return [asset for _, _, asset in hits]
+
+
+def _mentioned_assets(question: str) -> list[AssetSnapshot]:
+    """The first MAX_SYMBOLS assets named in the question, in the order they are mentioned."""
+    return _match_assets(question)[:MAX_SYMBOLS]
 
 
 def _asset_evidence(asset: AssetSnapshot, add) -> None:

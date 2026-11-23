@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 @dataclass(frozen=True)
 class CommitteeDecision:
     symbol: str
-    verdict: str
+    verdict: str  # neutral score band code (HIGH_SCORE / WATCH / NEUTRAL / LOW_SCORE), never a trade instruction
     score: float
     confidence: float
     bull_case: list[str]
@@ -21,4 +21,4 @@ class CommitteeDecision:
 def build_committee(analysis: dict[str, object], bull_bear: dict[str, object]) -> dict[str, object]:
     score = float(analysis["score"])
     confidence = float(bull_bear.get("confidence", 50))
-    return {"timestamp": datetime.now(timezone.utc).isoformat(), "symbol": analysis["symbol"], "verdict": analysis["verdict"], "score": score, "confidence": round(confidence, 1), "bull_case": bull_bear.get("bull", []), "bear_case": bull_bear.get("bear", []), "valuation": analysis.get("valuation", {}), "risk": analysis.get("risk", {}), "approval_state": "HUMAN_DECISION_REQUIRED", "execution": "NO_AUTOMATIC_EXECUTION", "decision_question": "What evidence would make this thesis wrong?"}
+    return {"timestamp": datetime.now(timezone.utc).isoformat(), "symbol": analysis["symbol"], "verdict": analysis["verdict"], "band": analysis.get("band"), "score": score, "confidence": round(confidence, 1), "bull_case": bull_bear.get("bull", []), "bear_case": bull_bear.get("bear", []), "valuation": analysis.get("valuation", {}), "risk": analysis.get("risk", {}), "approval_state": "HUMAN_DECISION_REQUIRED", "execution": "NO_AUTOMATIC_EXECUTION", "decision_question": "What evidence would make this thesis wrong?"}

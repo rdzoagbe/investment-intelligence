@@ -11,6 +11,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass
+from datetime import date, timedelta
 from math import sqrt
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -19,6 +20,8 @@ from . import market_data
 
 RANGES = {"1y", "2y", "5y", "10y"}
 PROVIDER = "Yahoo Finance chart API (daily, adjusted close)"
+# Yahoo's raw chart close is split-adjusted but not dividend-adjusted.
+PROVIDER_UNADJUSTED = "Yahoo Finance chart API (daily close, split-adjusted only; dividends not included)"
 
 
 @dataclass(frozen=True)
@@ -27,10 +30,15 @@ class PriceHistory:
     dates: list[str]
     closes: list[float]
     currency: str
-    provider: str = PROVIDER
+    provider: str = ""
+    adjusted: bool = False  # True only when Yahoo's adjclose series was used
+
+    def __post_init__(self) -> None:
+        if not self.provider:
+            object.__setattr__(self, "provider", PROVIDER if self.adjusted else PROVIDER_UNADJUSTED)
 
     def as_dict(self) -> dict[str, object]:
-        return {"symbol": self.symbol, "currency": self.currency, "provider": self.provider, "status": "LIVE",
+        return {"symbol": self.symbol, "currency": self.currency, "provider": self.provider, "status": "LIVE", "adjusted": self.adjusted,
                 "points": [{"date": d, "close": round(c, 4)} for d, c in zip(self.dates, self.closes)]}
 
 
@@ -39,7 +47,11 @@ _LOCK = threading.Lock()
 
 
 def parse_chart(symbol: str, payload: dict[str, object]) -> PriceHistory | None:
-    """Parse a Yahoo chart response, preferring split/dividend-adjusted closes."""
+    """Parse a Yahoo chart response, preferring split/dividend-adjusted closes.
+
+    Falls back to the raw close series when adjclose is missing or misaligned; the result
+    then has adjusted=False and an "unadjusted" provider label so it is never mislabelled.
+    """
     result = (payload.get("chart") or {}).get("result") or []  # type: ignore[union-attr]
     if not result:
         return None
@@ -48,7 +60,8 @@ def parse_chart(symbol: str, payload: dict[str, object]) -> PriceHistory | None:
     indicators = node.get("indicators") or {}
     adj = (indicators.get("adjclose") or [{}])[0].get("adjclose")
     raw = (indicators.get("quote") or [{}])[0].get("close")
-    series = adj if adj and len(adj) == len(stamps) else raw
+    adjusted = bool(adj) and len(adj) == len(stamps)
+    series = adj if adjusted else raw
     if not series or len(series) != len(stamps):
         return None
     dates, closes = [], []
@@ -59,7 +72,7 @@ def parse_chart(symbol: str, payload: dict[str, object]) -> PriceHistory | None:
     if len(closes) < 2:
         return None
     currency = str((node.get("meta") or {}).get("currency") or "")
-    return PriceHistory(symbol, dates, closes, currency)
+    return PriceHistory(symbol, dates, closes, currency, adjusted=adjusted)
 
 
 def price_history(symbol: str, range_: str = "2y") -> PriceHistory | None:
@@ -79,7 +92,7 @@ def price_history(symbol: str, range_: str = "2y") -> PriceHistory | None:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{quote(provider_symbol)}?range={range_}&interval=1d&events=div%2Csplits"
     try:
         result = parse_chart(symbol, market_data._fetch_json(url, timeout=float(os.getenv("MARKET_DATA_TIMEOUT", "8"))))  # noqa: SLF001
-    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, *market_data.PROVIDER_ERRORS):
         result = None
     with _LOCK:
         _CACHE[key] = (time.time(), result)
@@ -102,21 +115,61 @@ def sma(values: list[float], window: int) -> list[float | None]:
     return out
 
 
-def statistics(history: PriceHistory) -> dict[str, float | None]:
-    """Trailing statistics over the supplied history (252 trading days ≈ 1 year)."""
+def _parse_dates(dates: list[str]) -> list[date] | None:
+    try:
+        return [date.fromisoformat(d) for d in dates]
+    except (TypeError, ValueError):
+        return None
+
+
+def _last_index_on_or_before(days: list[date], target: date) -> int | None:
+    found = None
+    for i, d in enumerate(days):
+        if d <= target:
+            found = i
+        else:
+            break
+    return found
+
+
+def _lookback_indices(history: PriceHistory) -> tuple[int | None, int | None]:
+    """(index of the close ~1 year before the last, index of the close ~1 month before the last).
+
+    Uses calendar dates when available: the base is the last close on or before
+    last_date - 365 days, or the first close when the series starts within a week of that
+    date (a Yahoo "1y" range has ~250 bars, which the old fixed 253-bar lookback rejected).
+    Without ISO dates it falls back to 253 / 22 trading bars.
+    """
     c = history.closes
-    rets = daily_returns(c)
-    last_year = rets[-252:]
+    days = _parse_dates(history.dates) if len(history.dates) == len(c) else None
+    if days is None or days != sorted(days):
+        base = len(c) - 253 if len(c) >= 253 else None
+        end = len(c) - 22 if len(c) >= 22 else None
+        return base, end
+    last = days[-1]
+    target = last - timedelta(days=365)
+    base = _last_index_on_or_before(days, target)
+    if base is None and days[0] <= target + timedelta(days=7):
+        base = 0
+    end = _last_index_on_or_before(days, last - timedelta(days=30))
+    return base, end
+
+
+def statistics(history: PriceHistory) -> dict[str, float | None]:
+    """Trailing ~1-year statistics (calendar lookback of 365 days; 12-1 momentum ends ~30 days ago)."""
+    c = history.closes
+    base, month_ago = _lookback_indices(history)
+    window = c[base:] if base is not None else c[-253:]
+    rets = daily_returns(window)
     vol = None
-    if len(last_year) > 20:
-        mean = sum(last_year) / len(last_year)
-        vol = sqrt(sum((r - mean) ** 2 for r in last_year) / (len(last_year) - 1)) * sqrt(252) * 100
+    if len(rets) > 20:
+        mean = sum(rets) / len(rets)
+        vol = sqrt(sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)) * sqrt(252) * 100
     # 12-1 momentum: return from ~12 months ago to ~1 month ago (skips the latest month's reversal effect).
-    mom_12_1 = (c[-22] / c[-253] - 1) * 100 if len(c) >= 253 else None
-    ret_1y = (c[-1] / c[-253] - 1) * 100 if len(c) >= 253 else None
+    mom_12_1 = (c[month_ago] / c[base] - 1) * 100 if base is not None and month_ago is not None and month_ago > base else None
+    ret_1y = (c[-1] / c[base] - 1) * 100 if base is not None else None
     sma200 = sma(c, 200)[-1]
     above_200 = (c[-1] / sma200 - 1) * 100 if sma200 else None
-    window = c[-253:]
     peak, max_dd = window[0], 0.0
     for v in window:
         peak = max(peak, v)

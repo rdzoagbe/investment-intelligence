@@ -13,8 +13,12 @@ class ValuationScenario:
 
 def scenario_values(price: float, revenue_growth_pct: float, pe_ratio: float) -> list[dict[str, float | str]]:
     """Simple scenario scaffold; assumptions are intentionally explicit and inspectable."""
+    # Bear inputs are derived from Base and can never exceed it (a fixed floor would
+    # invert the ordering for low P/E or negative growth).
+    bear_growth = min(revenue_growth_pct, max(revenue_growth_pct - 8, -90.0))
+    bear_multiple = min(pe_ratio, max(pe_ratio - 8, pe_ratio * 0.7))
     scenarios = [
-        ("Bear", max(revenue_growth_pct - 8, 0), max(pe_ratio - 8, 8)),
+        ("Bear", bear_growth, bear_multiple),
         ("Base", revenue_growth_pct, pe_ratio),
         ("Bull", revenue_growth_pct + 6, pe_ratio + 6),
     ]

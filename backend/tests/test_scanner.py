@@ -14,3 +14,11 @@ def test_scanner_ranks_full_seed_universe():
 
 def test_scanner_limit_is_respected():
     assert len(scanner(3)) == 3
+
+
+def test_scanner_emits_neutral_bands_only():
+    for item in scanner(100):
+        assert item["verdict"] in {"HIGH_SCORE", "WATCH", "NEUTRAL", "LOW_SCORE"}
+        assert item["band"] in {"High score", "Watch", "Neutral", "Low score"}
+        assert item["fundamental_inputs"]["status"] in {"LIVE", "PARTIAL", "DEMO"}
+        assert set(item["fundamental_inputs"]["field_sources"]) == {"revenue_growth_pct", "operating_margin_pct", "free_cash_flow_margin_pct"}
