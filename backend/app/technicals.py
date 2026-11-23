@@ -60,23 +60,35 @@ def trend_line(closes: list[float]) -> dict[str, object] | None:
 
 
 def _swings(closes: list[float], window: int) -> tuple[list[int], list[int]]:
+    """Indices of swing highs/lows. A flat top or bottom (equal closes) counts once, at its first
+    session; the run must be strictly exceeded on both sides within the window."""
     highs, lows = [], []
-    for i in range(window, len(closes) - window):
-        seg = closes[i - window:i + window + 1]
-        if closes[i] == max(seg) and seg.count(closes[i]) == 1:
+    n = len(closes)
+    for i in range(window, n - window):
+        c = closes[i]
+        if i > 0 and closes[i - 1] == c:
+            continue  # not the first session of a plateau
+        j = i
+        while j + 1 < n and closes[j + 1] == c:
+            j += 1  # end of the plateau
+        left, right = closes[max(0, i - window):i], closes[j + 1:j + 1 + window]
+        if len(left) < window or len(right) < window:
+            continue
+        if all(x < c for x in left) and all(x < c for x in right):
             highs.append(i)
-        if closes[i] == min(seg) and seg.count(closes[i]) == 1:
+        if all(x > c for x in left) and all(x > c for x in right):
             lows.append(i)
     return highs, lows
 
 
 def _cluster(points: list[tuple[int, float]], tolerance: float) -> list[dict[str, object]]:
-    """Group swing prices lying within `tolerance` of a cluster's running mean."""
+    """Group swing prices so that no cluster spans more than `tolerance` (measured from its lowest
+    member). Anchoring on the lowest price stops a level from drifting across a wide range."""
     clusters: list[list[tuple[int, float]]] = []
     for idx, price in sorted(points, key=lambda p: p[1]):
         if clusters:
-            mean = sum(p for _, p in clusters[-1]) / len(clusters[-1])
-            if abs(price - mean) / mean <= tolerance:
+            low = clusters[-1][0][1]
+            if (price - low) / low <= tolerance:
                 clusters[-1].append((idx, price))
                 continue
         clusters.append([(idx, price)])

@@ -191,7 +191,7 @@ export function JournalPage({ mode, assets }: { mode: Mode; assets: AssetOption[
 // ---------- Portfolio ----------
 type Holding = { symbol: string; name: string; quantity: number; average_cost: number; price: number; currency: string; price_status: string; price_source: string; value: number; pnl: number; pnl_pct: number | null; weight_in_currency_pct: number | null; history: Stats | null };
 type FxRate = { rate: number | null; status: string; source: string | null };
-type Converted = { currency: string; value: number; cost: number; pnl: number; return_pct: number | null; rates: Record<string, FxRate>; complete: boolean; note: string };
+type Converted = { currency: string; value: number; cost: number; pnl: number; return_pct: number | null; rates: Record<string, FxRate>; complete: boolean; live?: boolean; demo_priced_holdings?: number; note: string };
 type MyPortfolio = { holdings: Holding[]; totals_by_currency: Record<string, { value: number; cost: number; pnl: number; return_pct: number | null }>; converted?: Converted | null; concentration_flags: string[]; notes: string[] };
 
 function ConvertedTotals({ c, currencies }: { c: Converted | null | undefined; currencies: number }) {
@@ -200,7 +200,8 @@ function ConvertedTotals({ c, currencies }: { c: Converted | null | undefined; c
     <div className="kpis three">
       <Kpi title={`Combined value (${c.currency})`} value={money(c.value, c.currency)} sub={`Cost ${money(c.cost, c.currency)}`} />
       <Kpi title={`Combined P&L (${c.currency})`} value={money(c.pnl, c.currency)} sub={pct(c.return_pct)} />
-      <Kpi title="Conversion" value={c.complete ? "Complete" : "Partial"} sub={c.complete ? "Every holding converted" : "Some holdings could not be converted"} />
+      <Kpi title="Conversion" value={!c.complete ? "Partial" : c.live === false ? "Not live" : "Complete"}
+        sub={!c.complete ? "Some holdings are left out (no exchange rate for their cost currency)" : c.live === false ? `${c.demo_priced_holdings ?? "Some"} holding(s) valued at DEMO prices` : "Every holding converted at live prices"} />
     </div>
     <ul className="inputs">{Object.entries(c.rates).map(([cur, r]) => <li key={cur}><span>{cur} → {c.currency}</span><b>{r.rate == null ? "unavailable" : num(r.rate, 6)}</b> <span className={`badge ${statusCls(r.status)}`}>{r.status}</span> <span className="tiny">{r.source ?? ""}</span></li>)}</ul>
     {c.note && <p className="tiny">{c.note}</p>}

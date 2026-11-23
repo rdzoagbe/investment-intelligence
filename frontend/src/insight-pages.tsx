@@ -67,7 +67,7 @@ export function AssistantPage({ mode }: { mode: Mode }) {
   if (blocked) return blocked;
   const ask = async (e: FormEvent) => {
     e.preventDefault(); setBusy(true); setErr("");
-    try { const r = await api<AssistantReply>("/api/assistant/ask", { method: "POST", body: JSON.stringify({ question: q }), timeoutMs: 90000 }); setItems(prev => [r, ...prev]); setQ(""); }
+    try { const r = await api<AssistantReply>("/api/assistant/ask", { method: "POST", body: JSON.stringify({ question: q }), timeoutMs: 120000  /* server budget is under 110 s */ }); setItems(prev => [r, ...prev]); setQ(""); }
     catch (e2) { setErr((e2 as Error).message); } finally { setBusy(false); }
   };
   const examples = ["How does NVIDIA compare with Microsoft on growth and valuation?", "What are the main risks in my portfolio?", "Which of my journal theses should I review?", "What does the price history say about ASML?"];

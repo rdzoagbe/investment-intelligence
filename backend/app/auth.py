@@ -123,5 +123,11 @@ def verify_user_password(user_id: int, password: str) -> bool:
     return _verify(password, row["password_hash"], row["salt"])
 
 
+def account_record(user_id: int) -> dict:
+    """Stored account fields included in a data export (never the password hash or salt)."""
+    row = db.fetch_one("SELECT terms_accepted_at FROM users WHERE id=?", (user_id,))
+    return {"terms_accepted_at": row.get("terms_accepted_at") if row else None}
+
+
 def delete_user(user_id: int) -> None:
     db.execute("DELETE FROM users WHERE id=?", (user_id,))

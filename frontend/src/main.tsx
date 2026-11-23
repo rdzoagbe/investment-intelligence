@@ -24,7 +24,7 @@ type Analysis = ScanItem & {
   data_status: string;
 };
 type Committee = { symbol: string; score: number; confidence: number; bull_case: string[]; bear_case: string[]; approval_state: string; execution: string; decision_question: string; timestamp: string; analysis?: string; model_provider?: string };
-type Macro = { regime: string; drivers: { name: string; direction: string; impact: string; note: string }[]; disclaimer: string };
+type Macro = { regime: string; label?: string; status?: string; drivers: { name: string; direction: string; impact: string; note: string }[]; disclaimer: string };
 type MarketRow = { name: string; symbol: string; value: number | null; change_pct: number | null; status: string };
 type Portfolio = { value: number; invested: number; cash: number; cash_pct: number; pnl: number; return_pct: number; allocation: { symbol: string; value: number; weight_pct: number; pnl_pct: number }[]; risk_flags: string[]; source: string; notice: string };
 type Risk = { volatility_pct: number | null; sharpe: number | null; max_drawdown_pct: number | null; source: string; notice: string };
@@ -132,6 +132,8 @@ function AssetModal({ symbol, mode, onClose }: { symbol: string; mode: Mode; onC
     const opener = document.activeElement as HTMLElement | null;
     closeBtn.current?.focus();
     const onKey = (e: KeyboardEvent) => {
+      // The sign-in gate (session expired) sits above the modal: leave its keyboard handling alone.
+      if (document.getElementById("ii-auth-gate")) return;
       if (e.key === "Escape") { e.preventDefault(); closeRef.current(); return; }
       if (e.key !== "Tab" || !card.current) return;
       const items = [...card.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el => el.offsetParent !== null || el === document.activeElement);
@@ -370,7 +372,7 @@ function IntelligencePage({ mode, macro }: { mode: Mode; macro: Macro | null }) 
       {n.error && <p className="muted">{n.error}</p>}{!n.data && !n.error && <p className="muted">Loading…</p>}
       {n.data && (n.data.items.length ? <ul className="news">{n.data.items.map(i => <li key={i.title + i.source}><a href={i.source.startsWith("http") ? i.source : undefined} target="_blank" rel="noreferrer noopener">{i.title}</a>{i.summary && <p>{i.summary}</p>}</li>)}</ul> : <p className="muted">No headlines could be retrieved from the feeds right now.</p>)}
     </section>
-    {macro && <section className="card pad"><Header title={`Macro regime: ${macro.regime}`} /><MacroList macro={macro} /></section>}
+    {macro && <section className="card pad"><Header title={macro.label ?? "Macro context notes"} eyebrow="STATIC NOTES · NOT COMPUTED FROM DATA" /><MacroList macro={macro} /></section>}
   </>;
 }
 
@@ -456,7 +458,7 @@ function MacroList({ macro }: { macro: Macro }) {
 }
 function MacroPanel({ macro }: { macro: Macro | null }) {
   if (!macro) return null;
-  return <div className="side card pad"><Header title={`Macro: ${macro.regime}`} eyebrow="RULE-BASED LABELS" /><MacroList macro={macro} /></div>;
+  return <div className="side card pad"><Header title="Macro context" eyebrow="STATIC NOTES · NOT COMPUTED" /><MacroList macro={macro} /></div>;
 }
 function Disclaimer() {
   return <div className="side card pad"><Header title="How to read this" /><p className="tiny">Scores combine stated inputs with fixed weights. They describe the data, not the future. Always check the source and status badge of each figure, and consult a licensed adviser before investing.</p></div>;

@@ -44,8 +44,11 @@ class IntelligenceItem:
 def _clean(raw: str) -> str:
     """Unwrap CDATA, strip markup and decode HTML entities."""
     text = re.sub(r"<!\[CDATA\[(.*?)\]\]>", r"\1", raw, flags=re.S)
+    # Decode first (RSS descriptions are usually entity-escaped HTML such as &lt;p&gt;), then strip
+    # the now-real tags, then decode again for double-escaped text (&amp;amp;).
+    text = html.unescape(html.unescape(text))
     text = re.sub(r"<[^>]+>", " ", text)
-    text = html.unescape(html.unescape(text))  # feeds often double-escape (&amp;amp;)
+    text = html.unescape(text)
     return re.sub(r"\s+", " ", text).strip()
 
 

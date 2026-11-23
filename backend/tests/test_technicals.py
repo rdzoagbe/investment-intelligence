@@ -75,3 +75,17 @@ def test_scanner_verdict_filter_accepts_band_names():
     by_code = c.get("/api/scanner?limit=100&verdict=HIGH_SCORE").json()["items"]
     by_name = c.get("/api/scanner?limit=100&verdict=High%20score").json()["items"]
     assert by_code == by_name and all(i["band"] == "High score" for i in by_name)
+
+
+def test_flat_double_top_counts_as_one_swing_each():
+    from app.technicals import _swings
+    closes = [1, 2, 3, 4, 5, 9, 9, 5, 4, 3, 2, 1, 2, 3, 4, 5, 9, 4, 3, 2, 1, 1]
+    highs, _ = _swings([float(c) for c in closes], 3)
+    assert highs == [5, 16]  # the plateau at 5-6 counts once, at its first session
+
+
+def test_cluster_never_spans_more_than_tolerance():
+    from app.technicals import _cluster
+    pts = [(i, 100 * (1.015 ** i)) for i in range(8)]  # each step 1.5%: a running mean would chain them all
+    clusters = _cluster(pts, 0.02)
+    assert max(c["touches"] for c in clusters) <= 2 and len(clusters) >= 4

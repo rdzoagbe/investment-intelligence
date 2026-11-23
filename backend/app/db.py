@@ -77,6 +77,10 @@ _FLOAT_COLUMNS = {
 _ADDED_COLUMNS = (
     ("users", "token_version", "INTEGER NOT NULL DEFAULT 0"),
     ("users", "terms_accepted_at", "{int}"),
+    # Currency the price was quoted in when the row was written. Older rows have NULL and are
+    # read with userdata.LEGACY_CURRENCY (ASML/SAP used to be priced from their USD ADRs).
+    ("holdings", "currency", "TEXT"),
+    ("paper_orders", "currency", "TEXT"),
 )
 _INDEXES = (
     ("idx_holdings_user", "holdings"),
@@ -95,8 +99,17 @@ def engine() -> str:
 def _migrate(conn: Any, postgres: bool, integer: str) -> None:
     """Idempotent in-place upgrades for databases created by earlier versions."""
     if postgres:
+        # Check the catalogue first: ALTER TABLE / CREATE INDEX take table locks even when they
+        # turn out to be no-ops, so on an up-to-date database this path must not issue them.
+        present = {(r["table_name"], r["column_name"]) for r in conn.execute(
+            "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema()").fetchall()}
         for table, column, definition in _ADDED_COLUMNS:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {definition.format(int=integer)}")
+            if (table, column) not in present:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {definition.format(int=integer)}")
+        indexes = {r["indexname"] for r in conn.execute("SELECT indexname FROM pg_indexes WHERE schemaname = current_schema()").fetchall()}
+        for name, table in _INDEXES:
+            if name not in indexes:
+                conn.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table}(user_id)")
         rows = conn.execute(
             "SELECT table_name, column_name FROM information_schema.columns "
             "WHERE table_schema = current_schema() AND data_type = 'real'"
@@ -112,12 +125,16 @@ def _migrate(conn: Any, postgres: bool, integer: str) -> None:
             existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
             if column not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition.format(int=integer)}")
-    for name, table in _INDEXES:
-        conn.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table}(user_id)")
+        for name, table in _INDEXES:
+            conn.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table}(user_id)")
 
 
 def _bootstrap(conn: Any, postgres: bool, pk: str, integer: str) -> None:
     if postgres:
+        # Fail fast instead of queueing every request behind a migration that waits on a lock
+        # (e.g. a pg_dump in progress); the next connection retries the bootstrap.
+        conn.execute("SET LOCAL lock_timeout = '5s'")
+        conn.execute("SET LOCAL statement_timeout = '60s'")
         conn.execute("SELECT pg_advisory_xact_lock(%s)", (_SCHEMA_LOCK_KEY,))
     real = "DOUBLE PRECISION" if postgres else "REAL"
     for ddl in _SCHEMA.values():

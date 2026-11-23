@@ -18,7 +18,8 @@ from fastapi import HTTPException, Request
 # (limit, window_seconds)
 LOGIN_PER_EMAIL_IP = (10, 15 * 60)
 LOGIN_PER_IP = (50, 15 * 60)
-LOGIN_PER_EMAIL = (30, 15 * 60)  # across all IPs: slows distributed guessing on one account
+# No account-wide limit across all IPs: it would let anyone lock a victim out of their own
+# account by failing logins on purpose. Guessing is limited per IP and per (email, IP) instead.
 REGISTER_PER_IP = (5, 60 * 60)
 ASSISTANT_PER_USER = (6, 60)
 
@@ -34,21 +35,32 @@ def assistant_global_daily() -> tuple[int, int]:
 
 _lock = threading.Lock()
 _hits: dict[str, deque[float]] = {}
+_windows: dict[str, int] = {}  # each key's own window, so pruning never drops a live long-window counter
 _MAX_KEYS = 50_000
 
 
 def reset() -> None:
     with _lock:
         _hits.clear()
+        _windows.clear()
 
 
 def client_ip(request: Request) -> str:
-    """Client address. Behind Render's proxy (RENDER is set) the first X-Forwarded-For hop."""
+    """Client address for rate limiting.
+
+    Behind Render's proxy (RENDER is set) the proxy APPENDS the address it saw to any
+    X-Forwarded-For the client sent, so only the right-most entry is trustworthy; the left
+    entries are client-controlled and must never be used as a rate-limit key.
+    TRUSTED_PROXY_HOPS can be raised if more trusted proxies sit in front of Render.
+    """
     if os.getenv("RENDER"):
-        forwarded = request.headers.get("x-forwarded-for", "")
-        first = forwarded.split(",")[0].strip()
-        if first:
-            return first[:64]
+        hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+        try:
+            trusted = max(1, int(os.getenv("TRUSTED_PROXY_HOPS", "1")))
+        except ValueError:
+            trusted = 1
+        if len(hops) >= trusted:
+            return hops[-trusted][:64]
     return request.client.host if request.client else "unknown"
 
 
@@ -59,8 +71,9 @@ def hit(key: str, limit: int, window: int, now: float | None = None) -> int | No
         bucket = _hits.get(key)
         if bucket is None:
             if len(_hits) >= _MAX_KEYS:
-                _prune(now, window)
+                _prune(now)
             bucket = _hits.setdefault(key, deque())
+        _windows[key] = max(_windows.get(key, 0), window)
         while bucket and bucket[0] <= now - window:
             bucket.popleft()
         if len(bucket) >= limit:
@@ -69,12 +82,16 @@ def hit(key: str, limit: int, window: int, now: float | None = None) -> int | No
         return None
 
 
-def _prune(now: float, window: int) -> None:
-    for key in [k for k, b in _hits.items() if not b or b[-1] <= now - window]:
+def _prune(now: float) -> None:
+    """Drop counters whose newest hit is older than THEIR OWN window (they can no longer block)."""
+    for key in [k for k, b in _hits.items() if not b or b[-1] <= now - _windows.get(k, 0)]:
         del _hits[key]
-    if len(_hits) >= _MAX_KEYS:  # still full: drop the oldest half rather than grow forever
-        for key in sorted(_hits, key=lambda k: _hits[k][-1] if _hits[k] else 0)[: _MAX_KEYS // 2]:
+        _windows.pop(key, None)
+    if len(_hits) >= _MAX_KEYS:  # still full: drop the oldest half of the SHORT-window keys first
+        short = sorted((k for k in _hits if _windows.get(k, 0) < 3600), key=lambda k: _hits[k][-1] if _hits[k] else 0)
+        for key in short[: _MAX_KEYS // 2]:
             del _hits[key]
+            _windows.pop(key, None)
 
 
 def enforce(key: str, limit: int, window: int, message: str = "Too many requests. Please wait and try again.") -> None:

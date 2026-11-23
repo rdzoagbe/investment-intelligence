@@ -32,6 +32,8 @@ class PriceHistory:
     currency: str
     provider: str = ""
     adjusted: bool = False  # True only when Yahoo's adjclose series was used
+    # Stock splits reported by the provider inside this range: ((YYYY-MM-DD, new/old shares), ...).
+    splits: tuple[tuple[str, float], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.provider:
@@ -72,7 +74,22 @@ def parse_chart(symbol: str, payload: dict[str, object]) -> PriceHistory | None:
     if len(closes) < 2:
         return None
     currency = str((node.get("meta") or {}).get("currency") or "")
-    return PriceHistory(symbol, dates, closes, currency, adjusted=adjusted)
+    return PriceHistory(symbol, dates, closes, currency, adjusted=adjusted, splits=parse_splits(node))
+
+
+def parse_splits(node: dict) -> tuple[tuple[str, float], ...]:
+    """Split events from a chart result (events.splits). Malformed entries are skipped."""
+    out = []
+    events = (node.get("events") or {}).get("splits") or {}
+    if isinstance(events, dict):
+        for item in events.values():
+            try:
+                ts, num, den = int(item["date"]), float(item["numerator"]), float(item["denominator"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if num > 0 and den > 0:
+                out.append((time.strftime("%Y-%m-%d", time.gmtime(ts)), num / den))
+    return tuple(sorted(out))
 
 
 def price_history(symbol: str, range_: str = "2y") -> PriceHistory | None:

@@ -40,7 +40,8 @@ def clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     return max(low, min(high, value))
 
 
-def live_pe_assessment(price: float, price_live: bool, currency: str, fundamentals: FundamentalSnapshot, today: date | None = None) -> tuple[float | None, str | None]:
+def live_pe_assessment(price: float, price_live: bool, currency: str, fundamentals: FundamentalSnapshot, today: date | None = None,
+                       split_dates: tuple[str, ...] | list[str] = ()) -> tuple[float | None, str | None]:
     """(P/E, None) from the live price and SEC diluted EPS, or (None, reason) when it must be withheld."""
     if not price_live:
         return None, "price is not live"
@@ -55,6 +56,9 @@ def live_pe_assessment(price: float, price_live: bool, currency: str, fundamenta
         return None, "SEC EPS period is unknown"
     if ((today or date.today()) - period_end).days > MAX_EPS_AGE_DAYS:
         return None, "SEC EPS period is older than 15 months"
+    later = [d for d in split_dates if d > period_end.isoformat()]
+    if later:
+        return None, f"stock split on {later[-1]} after the EPS period (EPS is not split-adjusted yet)"
     shares, diluted = fundamentals.shares_outstanding, fundamentals.diluted_shares
     if not shares or not diluted or shares <= 0 or diluted <= 0:
         return None, "cannot rule out a stock split since the EPS period (share counts unavailable)"
@@ -85,7 +89,8 @@ def score_asset(asset: AssetSnapshot, quote: dict[str, object] | None = None) ->
     history = price_history(asset.symbol, "2y")
     stats = statistics(history) if history else None
     hist_momentum = momentum_score(stats) if stats else None
-    pe, pe_reason = live_pe_assessment(price, price_live, quote_currency, fundamentals)
+    pe, pe_reason = live_pe_assessment(price, price_live, quote_currency, fundamentals,
+                                       split_dates=[d for d, _ in history.splits] if history else ())
     pe_input = pe if pe is not None else asset.pe_ratio
     sec_live = fundamentals.status == "LIVE"
     field_values = {

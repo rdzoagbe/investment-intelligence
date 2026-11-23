@@ -92,26 +92,51 @@ def tx_insert(conn: Any, query: str, params: tuple = ()) -> int:
 
 # ---------- Holdings ----------
 def list_holdings(user_id: int) -> list[dict[str, object]]:
-    return db.fetch_all("SELECT id,symbol,quantity,average_cost,created_at FROM holdings WHERE user_id=? ORDER BY symbol", (user_id,))
+    return db.fetch_all("SELECT id,symbol,quantity,average_cost,currency,created_at FROM holdings WHERE user_id=? ORDER BY symbol", (user_id,))
+
+
+# Rows written before the currency column existed. ASML and SAP were then priced from their US
+# ADRs in USD; every other asset was priced in the same currency it is priced in today.
+LEGACY_CURRENCY = {"ASML": "USD", "SAP": "USD"}
+
+
+def stored_currency(row: dict[str, object], quote_currency: str) -> str:
+    """Currency a stored holding/order price is denominated in."""
+    explicit = row.get("currency")
+    if explicit:
+        return str(explicit)
+    return LEGACY_CURRENCY.get(str(row.get("symbol", "")), quote_currency)
+
+
+def _to_currency(amount: float, from_ccy: str, to_ccy: str) -> tuple[float | None, dict[str, object] | None]:
+    """Convert at the current provider rate; (None, None) when no rate is available (never 1:1)."""
+    if from_ccy == to_ccy:
+        return amount, None
+    fx = fx_rate(from_ccy, to_ccy)
+    rate = fx.get("rate")
+    if not isinstance(rate, (int, float)) or rate <= 0:
+        return None, None
+    return amount * float(rate), {"from": from_ccy, "to": to_ccy, "rate": rate, "source": fx.get("source")}
 
 
 def upsert_holding(user_id: int, symbol: str, quantity: float, average_cost: float) -> dict[str, object]:
     asset = _asset_or_error(symbol)
     if quantity <= 0 or average_cost <= 0:
         raise UserDataError("Quantity and average cost must be positive.")
+    currency = str(quote_for_asset(asset).currency or asset.currency)
     # Single atomic upsert (SQLite >= 3.24 and PostgreSQL): a double-submitted form cannot race
     # the UNIQUE(user_id, symbol) constraint.
-    db.execute("INSERT INTO holdings(user_id,symbol,quantity,average_cost,created_at) VALUES(?,?,?,?,?) "
-               "ON CONFLICT(user_id, symbol) DO UPDATE SET quantity=excluded.quantity, average_cost=excluded.average_cost",
-               (user_id, asset.symbol, quantity, average_cost, int(time.time())))
-    return {"symbol": asset.symbol, "quantity": quantity, "average_cost": average_cost}
+    db.execute("INSERT INTO holdings(user_id,symbol,quantity,average_cost,currency,created_at) VALUES(?,?,?,?,?,?) "
+               "ON CONFLICT(user_id, symbol) DO UPDATE SET quantity=excluded.quantity, average_cost=excluded.average_cost, currency=excluded.currency",
+               (user_id, asset.symbol, quantity, average_cost, currency, int(time.time())))
+    return {"symbol": asset.symbol, "quantity": quantity, "average_cost": average_cost, "currency": currency}
 
 
 def delete_holding(user_id: int, symbol: str) -> None:
     db.execute("DELETE FROM holdings WHERE user_id=? AND symbol=?", (user_id, symbol.strip().upper()))
 
 
-def _converted(totals: dict[str, dict[str, float]], demo_count: int) -> dict[str, object] | None:
+def _converted(totals: dict[str, dict[str, float]], demo_count: int, left_out: int = 0) -> dict[str, object] | None:
     """Convert per-currency totals to USD at current provider FX rates; None if any rate is missing."""
     if not totals:
         return None
@@ -130,7 +155,9 @@ def _converted(totals: dict[str, dict[str, float]], demo_count: int) -> dict[str
     if demo_count:
         note += f" {demo_count} holding(s) are valued at DEMO fallback prices, so this total is not a live valuation."
     return {"currency": REPORTING_CURRENCY, "value": round(value, 2), "cost": round(cost, 2), "pnl": round(value - cost, 2),
-            "return_pct": round((value / cost - 1) * 100, 2) if cost else None, "rates": rates, "complete": demo_count == 0, "note": note}
+            "return_pct": round((value / cost - 1) * 100, 2) if cost else None, "rates": rates,
+            # complete = every holding is included and converted; live-ness is reported separately.
+            "complete": left_out == 0, "demo_priced_holdings": demo_count, "live": demo_count == 0, "note": note}
 
 
 def portfolio(user_id: int) -> dict[str, object]:
@@ -139,32 +166,49 @@ def portfolio(user_id: int) -> dict[str, object]:
     rows = []
     totals: dict[str, dict[str, float]] = {}
     demo_by_currency: dict[str, int] = {}
+    unconverted: list[str] = []
     for h in list_holdings(user_id):
         asset = _asset_or_error(str(h["symbol"]))
         q = quote_dict(quote_for_asset(asset))
         price = float(q["price"])
         currency = str(q["currency"] or asset.currency)
-        value, cost = float(h["quantity"]) * price, float(h["quantity"]) * float(h["average_cost"])
+        cost_ccy = stored_currency(h, currency)
+        value = float(h["quantity"]) * price
+        raw_cost = float(h["quantity"]) * float(h["average_cost"])
+        cost, conversion = _to_currency(raw_cost, cost_ccy, currency)
         hist = price_history(asset.symbol, "2y")
-        rows.append({"symbol": asset.symbol, "name": asset.name, "quantity": h["quantity"], "average_cost": h["average_cost"], "price": price,
-                     "currency": currency, "price_status": q["status"], "price_source": q["provider"], "value": round(value, 2),
-                     "pnl": round(value - cost, 2), "pnl_pct": round((value / cost - 1) * 100, 2) if cost else None,
-                     "history": statistics(hist) if hist else None})
+        row = {"symbol": asset.symbol, "name": asset.name, "quantity": h["quantity"], "average_cost": h["average_cost"], "cost_currency": cost_ccy, "price": price,
+               "currency": currency, "price_status": q["status"], "price_source": q["provider"], "value": round(value, 2),
+               "pnl": round(value - cost, 2) if cost is not None else None,
+               "pnl_pct": round((value / cost - 1) * 100, 2) if cost else None,
+               "cost_conversion": conversion, "history": statistics(hist) if hist else None}
+        if cost is None:
+            row["currency_note"] = (f"Average cost is in {cost_ccy} but {asset.symbol} is now priced in {currency}, and no exchange rate is "
+                                    "available, so profit and loss is not shown and this holding is left out of the totals.")
+            rows.append(row)
+            unconverted.append(asset.symbol)
+            continue
+        if conversion:
+            row["currency_note"] = f"Average cost entered in {cost_ccy}, converted to {currency} at today's rate for comparison."
+        rows.append(row)
         t = totals.setdefault(currency, {"value": 0.0, "cost": 0.0})
         t["value"] += value
         t["cost"] += cost
         demo_by_currency[currency] = demo_by_currency.get(currency, 0) + (0 if q["status"] == "LIVE" else 1)
     for r in rows:
-        r["weight_in_currency_pct"] = round(float(r["value"]) / totals[str(r["currency"])]["value"] * 100, 2) if totals[str(r["currency"])]["value"] else None
+        tot = totals.get(str(r["currency"]))
+        r["weight_in_currency_pct"] = round(float(r["value"]) / tot["value"] * 100, 2) if tot and tot["value"] and r.get("pnl") is not None else None
     flags = [f"{r['symbol']} is {r['weight_in_currency_pct']}% of your {r['currency']} holdings" for r in rows if (r["weight_in_currency_pct"] or 0) > 35 and len(rows) > 1]
     demo_total = sum(demo_by_currency.values())
-    converted = _converted(totals, demo_total)
+    converted = _converted(totals, demo_total, len(unconverted))
     notes = ["Totals are shown per currency in each asset's trading currency.",
              "Each price shows whether it is LIVE or a DEMO fallback."]
     notes.append("A USD total is shown using current provider exchange rates." if converted else
                  "No USD total: at least one exchange rate is unavailable, and no rate is assumed." if totals else "No holdings yet.")
     if demo_total:
         notes.append(f"{demo_total} holding(s) are valued at DEMO fallback prices; totals that include them are not live valuations.")
+    if unconverted:
+        notes.append(f"Left out of totals because their cost currency differs from today's listing and no exchange rate is available: {', '.join(unconverted)}.")
     return {"holdings": rows,
             "totals_by_currency": {c: {"value": round(t["value"], 2), "cost": round(t["cost"], 2), "pnl": round(t["value"] - t["cost"], 2),
                                        "return_pct": round((t["value"] / t["cost"] - 1) * 100, 2) if t["cost"] else None,
@@ -235,6 +279,13 @@ def set_outcome(user_id: int, entry_id: int, outcome: str) -> dict[str, object]:
 
 
 # ---------- Paper trading ----------
+def _asset_currency(symbol: str) -> str:
+    from .data import get_asset
+    asset = get_asset(symbol)
+    return asset.currency if asset else ""
+
+
+
 def _paper_state(user_id: int, conn: Any | None = None) -> tuple[float, dict[str, dict[str, float]], list[dict[str, object]]]:
     """Rebuild cash and positions from the order log (the log is the source of truth).
 
@@ -244,7 +295,8 @@ def _paper_state(user_id: int, conn: Any | None = None) -> tuple[float, dict[str
     cash, pos = db.PAPER_STARTING_CASH, {}
     for o in orders:
         qty, px = float(o["quantity"]), float(o["fill_price"])
-        p = pos.setdefault(str(o["symbol"]), {"quantity": 0.0, "cost": 0.0})
+        p = pos.setdefault(str(o["symbol"]), {"quantity": 0.0, "cost": 0.0, "currencies": set()})
+        p["currencies"].add(stored_currency(o, LEGACY_CURRENCY.get(str(o["symbol"])) or _asset_currency(str(o["symbol"]))))
         if o["side"] == "BUY":
             cash -= qty * px
             p["quantity"] += qty
@@ -265,9 +317,15 @@ def paper_account(user_id: int, order_limit: int | None = None, order_offset: in
     positions = []
     for symbol, p in pos.items():
         q = quote_dict(quote_for_asset(_asset_or_error(symbol)))
-        positions.append({"symbol": symbol, "quantity": round(p["quantity"], 6), "average_cost": round(p["cost"] / p["quantity"], 4), "price": q["price"],
-                          "price_status": q["status"], "currency": q["currency"], "value": round(p["quantity"] * float(q["price"]), 2),
-                          "pnl": round(p["quantity"] * float(q["price"]) - p["cost"], 2)})
+        value = p["quantity"] * float(q["price"])
+        ccys = sorted(p["currencies"])
+        cost, conversion = (_to_currency(p["cost"], ccys[0], str(q["currency"])) if len(ccys) == 1 else (None, None))
+        entry = {"symbol": symbol, "quantity": round(p["quantity"], 6), "average_cost": round(p["cost"] / p["quantity"], 4), "cost_currency": "/".join(ccys),
+                 "price": q["price"], "price_status": q["status"], "currency": q["currency"], "value": round(value, 2),
+                 "pnl": round(value - cost, 2) if cost is not None else None, "cost_conversion": conversion}
+        if cost is None:
+            entry["currency_note"] = f"Bought in {'/'.join(ccys)} but now priced in {q['currency']} with no usable exchange rate, so profit and loss is not shown."
+        positions.append(entry)
     demo_priced = sum(1 for p in positions if p["price_status"] != "LIVE")
     notes = ["Simulated account. No real money and no real orders.", "Cash is a single simulated balance; positions in other currencies are not FX-converted."]
     if demo_priced:
@@ -295,9 +353,9 @@ def paper_order(user_id: int, symbol: str, side: str, quantity: float) -> dict[s
             raise UserDataError(f"Insufficient simulated cash: order needs {quantity * price:,.2f}, available {cash:,.2f}.")
         if side == "SELL" and quantity > pos.get(asset.symbol, {}).get("quantity", 0.0) + 1e-9:
             raise UserDataError("You cannot sell more than your simulated position.")
-        order_id = tx_insert(conn, "INSERT INTO paper_orders(user_id,symbol,side,quantity,fill_price,price_status,created_at) VALUES(?,?,?,?,?,?,?)",
-                             (user_id, asset.symbol, side, quantity, price, str(q["status"]), int(time.time())))
-    return {"id": order_id, "symbol": asset.symbol, "side": side, "quantity": quantity, "fill_price": price, "price_status": q["status"], "status": "FILLED_SIMULATED"}
+        order_id = tx_insert(conn, "INSERT INTO paper_orders(user_id,symbol,side,quantity,fill_price,price_status,currency,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                             (user_id, asset.symbol, side, quantity, price, str(q["status"]), str(q["currency"] or asset.currency), int(time.time())))
+    return {"id": order_id, "symbol": asset.symbol, "side": side, "quantity": quantity, "fill_price": price, "currency": q["currency"], "price_status": q["status"], "status": "FILLED_SIMULATED"}
 
 
 # ---------- Data rights: export and delete ----------
@@ -315,8 +373,11 @@ def export_user_data(user_id: int) -> dict[str, object]:
             "assistant_history": db.fetch_all("SELECT * FROM assistant_queries WHERE user_id=? ORDER BY id", (user_id,))}
 
 
-def delete_user_data(user_id: int) -> None:
-    """Delete every per-user row in one transaction (the users row is deleted by the caller)."""
+def delete_user_data(user_id: int, delete_account: bool = False) -> None:
+    """Delete every per-user row, and optionally the account itself, in ONE transaction,
+    so an interrupted or concurrent request can never leave personal data behind."""
     with user_transaction(user_id) as conn:
         for table in _USER_TABLES:
             tx_execute(conn, f"DELETE FROM {table} WHERE user_id=?", (user_id,))  # noqa: S608 - fixed table names
+        if delete_account:
+            tx_execute(conn, "DELETE FROM users WHERE id=?", (user_id,))

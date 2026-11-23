@@ -99,7 +99,7 @@ def test_portfolio_converted_usd_only_and_flags_demo():
     userdata.upsert_holding(5, "MSFT", 2, 400)
     p = userdata.portfolio(5)
     conv = p["converted"]
-    assert conv is not None and conv["currency"] == "USD" and conv["complete"] is False  # DEMO prices
+    assert conv is not None and conv["currency"] == "USD" and conv["complete"] is True and conv["live"] is False and conv["demo_priced_holdings"] == 1  # converted, but DEMO-priced
     assert conv["rates"]["USD"]["status"] == "IDENTITY" and conv["rates"]["USD"]["rate"] == 1.0
     assert conv["value"] == p["totals_by_currency"]["USD"]["value"]
     assert p["totals_by_currency"]["USD"]["demo_priced_holdings"] == 1

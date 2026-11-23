@@ -158,15 +158,21 @@ class _FakeResult:
 
 
 class _FakePg:
-    def __init__(self, real_columns):
+    def __init__(self, real_columns, present_columns=None, indexes=()):
         self.sql: list[str] = []
         self.real_columns = real_columns
+        self.present_columns = present_columns if present_columns is not None else set(real_columns)
+        self.indexes = set(indexes)
         self.closed = False
 
     def execute(self, query, params=None):
         self.sql.append(query)
-        if "information_schema.columns" in query:
+        if "information_schema.columns" in query and "data_type = 'real'" in query:
             return _FakeResult([{"table_name": t, "column_name": c} for t, c in self.real_columns])
+        if "information_schema.columns" in query:
+            return _FakeResult([{"table_name": t, "column_name": c} for t, c in self.present_columns])
+        if "pg_indexes" in query:
+            return _FakeResult([{"indexname": n} for n in self.indexes])
         return _FakeResult([])
 
     def commit(self):
@@ -177,7 +183,8 @@ def test_postgres_bootstrap_uses_double_precision_and_migrates_real_columns():
     conn = _FakePg({("holdings", "quantity"), ("paper_orders", "fill_price"), ("scan_snapshots", "price")})
     db._bootstrap(conn, True, "BIGSERIAL PRIMARY KEY", "BIGINT")
     joined = "\n".join(conn.sql)
-    assert "pg_advisory_xact_lock" in conn.sql[0]
+    assert conn.sql[0] == "SET LOCAL lock_timeout = '5s'"
+    assert any("pg_advisory_xact_lock" in q for q in conn.sql[:3])
     assert " REAL " not in joined and "DOUBLE PRECISION NOT NULL" in joined
     assert "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0" in joined
     assert "ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at BIGINT" in joined
@@ -188,10 +195,11 @@ def test_postgres_bootstrap_uses_double_precision_and_migrates_real_columns():
         "ALTER TABLE scan_snapshots ALTER COLUMN price TYPE DOUBLE PRECISION",
     ])
     assert any("CREATE INDEX IF NOT EXISTS idx_alert_events_user ON alert_events(user_id)" == q for q in conn.sql)
-    # Already migrated: no further ALTER COLUMN statements.
-    again = _FakePg(set())
+    # Already migrated: no ALTER TABLE or CREATE INDEX at all (they take table locks even as no-ops).
+    present = {(t, c) for t, c, _ in db._ADDED_COLUMNS}
+    again = _FakePg(set(), present_columns=present, indexes=[n for n, _ in db._INDEXES])
     db._bootstrap(again, True, "BIGSERIAL PRIMARY KEY", "BIGINT")
-    assert not [q for q in again.sql if "ALTER COLUMN" in q]
+    assert not [q for q in again.sql if q.startswith("ALTER TABLE") or q.startswith("CREATE INDEX")]
 
 
 def test_failed_bootstrap_closes_connection_and_retries(tmp_path, monkeypatch):
@@ -240,7 +248,8 @@ def test_export_and_delete_account(client, monkeypatch):
     headers = _register(client)
     exported, deleted = [], []
     monkeypatch.setattr(userdata, "export_user_data", lambda uid: exported.append(uid) or {"holdings": [], "journal": []}, raising=False)
-    monkeypatch.setattr(userdata, "delete_user_data", lambda uid: deleted.append(uid), raising=False)
+    real_delete = userdata.delete_user_data
+    monkeypatch.setattr(userdata, "delete_user_data", lambda uid, delete_account=False: deleted.append(uid) or real_delete(uid, delete_account=delete_account), raising=False)
     r = client.get("/api/me/export", headers=headers)
     assert r.status_code == 200
     assert r.headers["content-disposition"].startswith("attachment")

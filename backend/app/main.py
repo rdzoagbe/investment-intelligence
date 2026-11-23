@@ -117,7 +117,6 @@ def login(request: LoginRequest, http_request: Request) -> dict[str, object]:
     message = "Too many sign-in attempts. Please wait and try again."
     ratelimit.enforce(f"login:ip:{ip}", *ratelimit.LOGIN_PER_IP, message=message)
     ratelimit.enforce(f"login:email-ip:{email}|{ip}", *ratelimit.LOGIN_PER_EMAIL_IP, message=message)
-    ratelimit.enforce(f"login:email:{email}", *ratelimit.LOGIN_PER_EMAIL, message=message)
     user = authenticate(request.email, request.password)
     if not user: raise HTTPException(401, "Invalid email or password.")
     return _session(user)
@@ -149,7 +148,7 @@ def logout(user: dict[str, object] = Depends(current_user)) -> dict[str, str]:
 @app.get("/api/me/export")
 def my_export(user: dict[str, object] = Depends(current_user)) -> JSONResponse:
     uid = int(user["id"])
-    body = {"exported_at": int(time.time()), "account": public_user(user), **userdata.export_user_data(uid)}
+    body = {"exported_at": int(time.time()), "account": {**public_user(user), **auth_store.account_record(uid)}, **userdata.export_user_data(uid)}
     return JSONResponse(body, headers={"Content-Disposition": f'attachment; filename="investment-intelligence-export-{uid}.json"', "Cache-Control": "no-store"})
 
 
@@ -159,8 +158,7 @@ def my_account_delete(body: PasswordConfirm, request: Request, user: dict[str, o
     ratelimit.enforce(f"delete:user:{uid}", *ratelimit.LOGIN_PER_EMAIL_IP, message="Too many attempts. Please wait and try again.")
     if not auth_store.verify_user_password(uid, body.password):
         raise HTTPException(403, "Password is incorrect.")
-    userdata.delete_user_data(uid)
-    auth_store.delete_user(uid)
+    userdata.delete_user_data(uid, delete_account=True)  # one transaction: data and account go together
     return {"status": "deleted"}
 
 @app.get("/api/assets")
@@ -222,9 +220,13 @@ def backtest(request: BacktestRequest) -> dict[str, object]:
 
 
 def _broker_operator(user: dict[str, object]) -> None:
-    """The paper broker uses the operator's Alpaca keys: only listed operator accounts may submit."""
-    operators = {e.strip().lower() for e in os.getenv("BROKER_OPERATOR_EMAILS", "").split(",") if e.strip()}
-    if gateway.paper_enabled and str(user.get("email", "")).lower() not in operators:
+    """The paper broker uses the operator's Alpaca keys: only listed operator accounts may submit.
+
+    Operators are identified by account id (BROKER_OPERATOR_USER_IDS), not by email: emails are
+    not verified, so anyone could register an address that is listed.
+    """
+    operators = {e.strip() for e in os.getenv("BROKER_OPERATOR_USER_IDS", "").split(",") if e.strip()}
+    if gateway.paper_enabled and str(user.get("id", "")) not in operators:
         raise HTTPException(403, "Paper broker execution is restricted to the operator account.")
 
 

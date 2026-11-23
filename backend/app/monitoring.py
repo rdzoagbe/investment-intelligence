@@ -35,6 +35,15 @@ MIN_FORWARD_DAYS = 5
 # Fallback guard when no adjusted history is available: a snapshot-to-latest price ratio
 # outside this band most likely reflects a stock split (or reverse split), not a return.
 SPLIT_SUSPECT_LOW, SPLIT_SUSPECT_HIGH = 0.4, 2.5
+# Common split factors: a raw price ratio within 3% of one of these (or its inverse) is treated
+# as a likely split when no provider split data covers the window.
+_SPLIT_FACTORS = (2.0, 3.0, 1.5, 4.0, 5.0, 10.0, 20.0)
+
+
+def _looks_like_split(ratio: float) -> bool:
+    if not SPLIT_SUSPECT_LOW <= ratio <= SPLIT_SUSPECT_HIGH:
+        return True
+    return any(abs(ratio * f - 1) <= 0.03 or abs(ratio / f - 1) <= 0.03 for f in _SPLIT_FACTORS)
 # The automatic daily snapshot runs after the US close (16:00 ET is 20:00/21:00 UTC).
 SNAPSHOT_AFTER_UTC = (21, 30)
 
@@ -244,13 +253,15 @@ def signal_track_record() -> dict[str, object]:
     between the two dates when it covers them (so splits are not counted as losses); otherwise the
     stored snapshot prices are used and pairs whose ratio implies a likely split are excluded.
     """
-    rows = db.fetch_all("SELECT snapshot_date,symbol,score,price,price_status FROM scan_snapshots WHERE price_status='LIVE' ORDER BY snapshot_date")
-    latest: dict[str, dict[str, object]] = {}
+    rows = db.fetch_all("SELECT snapshot_date,symbol,score,price,price_status,currency FROM scan_snapshots WHERE price_status='LIVE' ORDER BY snapshot_date")
+    # Pairs are only formed within one currency: a listing change (e.g. ASML moved from the USD
+    # ADR to the EUR home listing) must never be read as a return.
+    latest: dict[tuple[str, str], dict[str, object]] = {}
     for r in rows:
-        latest[str(r["symbol"])] = r
+        latest[(str(r["symbol"]), str(r.get("currency") or ""))] = r
     pairs = []
     for r in rows:
-        end = latest[str(r["symbol"])]
+        end = latest[(str(r["symbol"]), str(r.get("currency") or ""))]
         days = (date.fromisoformat(str(end["snapshot_date"])) - date.fromisoformat(str(r["snapshot_date"]))).days
         if days >= MIN_FORWARD_DAYS and float(r["price"]) > 0 and float(end["price"]) > 0:
             pairs.append((r, end))
@@ -269,7 +280,8 @@ def signal_track_record() -> dict[str, object]:
                 from_history += 1
         if ratio is None:
             ratio = float(end["price"]) / float(r["price"])
-            if not SPLIT_SUSPECT_LOW <= ratio <= SPLIT_SUSPECT_HIGH:
+            split_in_window = bool(hist is not None and any(str(r["snapshot_date"]) < d <= str(end["snapshot_date"]) for d, _ in getattr(hist, "splits", ())))
+            if split_in_window or _looks_like_split(ratio):
                 excluded_splits += 1
                 continue
         buckets[band_label(float(r["score"]))].append((ratio - 1) * 100)
@@ -283,8 +295,9 @@ def signal_track_record() -> dict[str, object]:
             "excluded_suspected_splits": excluded_splits,
             "notes": [f"Only pairs where both prices are LIVE count. A pair needs at least {MIN_FORWARD_DAYS} days between snapshot and latest price.",
                       "Where provider history is available, returns use split-adjusted (and, where offered, dividend-adjusted) daily closes. "
-                      f"Otherwise raw snapshot prices are used, ignore dividends, and pairs whose price ratio is below {SPLIT_SUSPECT_LOW} or above "
-                      f"{SPLIT_SUSPECT_HIGH} are excluded as likely stock splits.",
+                      f"Otherwise raw snapshot prices are used, ignore dividends, and pairs that span a reported split, or whose price ratio is "
+                      f"below {SPLIT_SUSPECT_LOW}, above {SPLIT_SUSPECT_HIGH} or close to a common split factor (2:1, 3:2, 3:1 ...), are excluded.",
+                      "Pairs are only formed within one trading currency.",
                       "Returns are in each asset's own currency and overlap in time, so they are not independent.",
                       "Treat results as descriptive until there are many months of data; small samples are mostly noise."]
             + ([f"{excluded_splits} pair(s) were excluded as likely stock splits."] if excluded_splits else [])

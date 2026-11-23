@@ -176,7 +176,10 @@ def gather_evidence(question: str, user_id: int | None) -> list[Evidence]:
 
 
 # ---------- Answering ----------
-_CITATION_GROUP = re.compile(r"\[\s*([Ee]\s*\d+(?:\s*(?:[,;]|-|–|—|to|and)\s*[Ee]?\s*\d+)*)\s*\]")
+# One citation item is E<n> or a range E<n>-<m> / E<n>-E<m>. In a list every item needs the E
+# prefix, so "[E2, 2023]" is not read as citing an evidence item 2023.
+_CITATION_ITEM = r"[Ee]\s*\d+(?:\s*(?:-|–|—|to)\s*[Ee]?\s*\d+)?"
+_CITATION_GROUP = re.compile(rf"\[\s*({_CITATION_ITEM}(?:\s*(?:[,;]|and)\s*{_CITATION_ITEM})*)\s*\]")
 
 
 def _expand_group(body: str) -> list[str]:
@@ -193,7 +196,7 @@ def _expand_group(body: str) -> list[str]:
             else:
                 ids.extend([f"E{a}", f"E{b}"])
             continue
-        single = re.fullmatch(r"[Ee]?\s*(\d+)", part)
+        single = re.fullmatch(r"[Ee]\s*(\d+)", part)
         if single:
             ids.append(f"E{int(single.group(1))}")
     return ids
@@ -236,20 +239,19 @@ def _daily_count(user_id: int, up_to_id: int | None = None) -> int:
 def _reserve(user_id: int, question: str, provider: str, limit: int) -> int | None:
     """Reserve one generated answer before calling the paid provider.
 
-    A pending row is written first, then the rows up to and including it are counted. When
-    several requests race, the ones whose row falls beyond the limit release their
-    reservation, so at most `limit` paid calls start per 24 hours, across processes too.
+    The count and the pending-row insert run in ONE per-user serialised transaction (process
+    lock plus a PostgreSQL advisory lock / SQLite BEGIN IMMEDIATE), so concurrent requests from
+    the same user, even across processes, can never start more than `limit` paid calls per 24h.
     """
-    if _daily_count(user_id) >= limit:
-        return None
     pending = json.dumps({"question": question, "answer": None, "provider": provider, "pending": True, "evidence": [], "citations": [],
                           "notice": "This answer was still being generated (or the request was interrupted)."})
-    row_id = db.insert("INSERT INTO assistant_queries(user_id,question,response,provider,created_at) VALUES(?,?,?,?,?)",
-                       (user_id, question, pending, provider, int(time.time())))
-    if _daily_count(user_id, row_id) > limit:
-        db.execute("DELETE FROM assistant_queries WHERE id=?", (row_id,))
-        return None
-    return row_id
+    since = int(time.time()) - 86400
+    with userdata.user_transaction(user_id) as conn:
+        rows = userdata.tx_fetch_all(conn, "SELECT COUNT(*) AS n FROM assistant_queries WHERE user_id=? AND provider<>'none' AND created_at>=?", (user_id, since))
+        if rows and int(rows[0]["n"]) >= limit:
+            return None
+        return userdata.tx_insert(conn, "INSERT INTO assistant_queries(user_id,question,response,provider,created_at) VALUES(?,?,?,?,?)",
+                                  (user_id, question, pending, provider, int(time.time())))
 
 
 PRIVACY_NOTICE = ("Your question and the evidence above, including your own holdings and journal entries, were sent to the "
