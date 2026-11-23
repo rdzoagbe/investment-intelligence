@@ -24,7 +24,7 @@ from .data import ASSETS, get_asset
 from .engine import analyze_asset, scanner
 from .fundamentals import fundamentals_for_symbol, sec_user_agent
 from .intelligence import bull_bear, macro_snapshot, market_intelligence
-from .market_data import index_quotes, live_quotes, market_data_status
+from .market_data import provider_health, index_quotes, live_quotes, market_data_status
 from .portfolio import Holding, portfolio_snapshot, risk_metrics
 
 app = FastAPI(title="Investment Intelligence API", version="1.2.0")
@@ -355,7 +355,7 @@ def status() -> dict[str, object]:
         # Never include connection strings or secret values: only reachability and set/missing.
         "database": {"ok": db.ping(), "engine": db.engine()},
         "config": {"anthropic_api_key": _config_flag("ANTHROPIC_API_KEY"), "sec_user_agent": _config_flag("SEC_USER_AGENT"), "job_token": _config_flag("JOB_TOKEN")},
-        "market_data": {"mode": os.getenv("MARKET_DATA_MODE", "live"), "provider": "Yahoo Finance chart API (unofficial; personal research use)"},
+        "market_data": {"mode": os.getenv("MARKET_DATA_MODE", "live"), "provider": "Yahoo Finance chart API (unofficial; personal research use)", **provider_health()},
         "fundamentals": {"mode": os.getenv("FUNDAMENTALS_MODE", "live"), "sec_enabled": sec_user_agent() is not None, "note": "Set SEC_USER_AGENT to 'Name email@domain' to enable SEC EDGAR fundamentals."},
         "assistant": {"provider": llm.provider(), "daily_limit": int(os.getenv("ASSISTANT_DAILY_LIMIT", "20")), "note": "Set ANTHROPIC_API_KEY (or OPENAI_API_KEY) to enable generated answers; without one the assistant lists evidence only."},
         "daily_job": {"enabled": len(os.getenv("JOB_TOKEN", "")) >= 24},
