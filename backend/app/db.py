@@ -41,6 +41,10 @@ _SCHEMA = {
         id {pk}, snapshot_date TEXT NOT NULL, symbol TEXT NOT NULL, score {real} NOT NULL,
         price {real} NOT NULL, price_status TEXT NOT NULL, currency TEXT NOT NULL,
         created_at {int} NOT NULL, UNIQUE(snapshot_date, symbol))""",
+    # Responses from licensed data providers (e.g. Tiingo daily history), kept so a restart of
+    # a free server does not spend the provider's small hourly request allowance again.
+    "provider_cache": """CREATE TABLE IF NOT EXISTS provider_cache (
+        cache_key TEXT PRIMARY KEY, fetched_at {int} NOT NULL, payload TEXT NOT NULL)""",
 }
 PAPER_STARTING_CASH = 100_000.0
 

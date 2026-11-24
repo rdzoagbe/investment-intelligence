@@ -331,7 +331,7 @@ def test_status_database_never_leaks_connection_string(client, monkeypatch):
     monkeypatch.setenv("JOB_TOKEN", "x" * 30)
     body = client.get("/api/status").json()
     assert body["database"] == {"ok": False, "engine": "postgresql"}
-    assert body["config"] == {"anthropic_api_key": "missing", "sec_user_agent": "set", "job_token": "set"}
+    assert body["config"] == {"anthropic_api_key": "missing", "sec_user_agent": "set", "job_token": "set", "tiingo_api_key": "missing"}
     assert "hunter2" not in str(body) and "jane@example.com" not in str(body)
 
 

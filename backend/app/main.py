@@ -8,6 +8,7 @@ import time
 from fastapi import Depends, FastAPI, HTTPException, Query, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, field_validator
 
 from . import auth as auth_store
@@ -15,7 +16,7 @@ from .auth import authenticate, create_user, issue_token, public_user, user_from
 import hmac
 
 from . import technicals
-from . import assistant, db, llm, market_data as market_data_module, monitoring, ratelimit, userdata
+from . import assistant, db, llm, market_data as market_data_module, monitoring, ratelimit, tiingo, userdata
 from .backtest import BacktestConfig, run_backtest, trend_backtest
 from .history import price_history, statistics
 from .broker import gateway
@@ -44,6 +45,35 @@ async def limit_body_size(request: Request, call_next):
             return JSONResponse({"detail": "Invalid Content-Length."}, status_code=400)
         if too_big:
             return JSONResponse({"detail": "Request body too large."}, status_code=413)
+    return await call_next(request)
+
+
+# Private mode (OWNER_USER_IDS set): the API serves data only to those accounts and sign-up is
+# closed. Needed for data licensed for personal use only (e.g. Tiingo's free plan). These
+# paths stay reachable so anyone can sign in, see the status page, or export/delete an account.
+PRIVATE_OPEN_PATHS = {"/api/health", "/api/status", "/api/auth/login", "/api/auth/register", "/api/auth/me",
+                      "/api/auth/logout", "/api/me/export", "/api/me/account", "/api/jobs/daily-scan"}
+PRIVATE_MESSAGE = "This deployment is private: its market data is licensed for the owner's personal use only."
+
+
+@app.middleware("http")
+async def private_mode_gate(request: Request, call_next):
+    owners = tiingo.owner_ids()
+    path = request.url.path.rstrip("/") or "/"
+    if not owners or request.method == "OPTIONS" or not path.startswith("/api/") or path in PRIVATE_OPEN_PATHS:
+        return await call_next(request)
+    header = request.headers.get("authorization") or ""
+    if not header.lower().startswith("bearer "):
+        return JSONResponse({"detail": "Authentication required. " + PRIVATE_MESSAGE}, status_code=401)
+    try:
+        user = await run_in_threadpool(user_from_token, header.split(" ", 1)[1].strip())
+    except Exception as exc:  # noqa: BLE001 - database outage, not an invalid session
+        log.warning("session lookup failed: %s", type(exc).__name__)
+        return JSONResponse({"detail": DB_UNAVAILABLE}, status_code=503)
+    if not user:
+        return JSONResponse({"detail": "Session expired or invalid."}, status_code=401)
+    if str(user["id"]) not in owners:
+        return JSONResponse({"detail": PRIVATE_MESSAGE}, status_code=403)
     return await call_next(request)
 
 
@@ -110,6 +140,8 @@ def _session(user: dict[str, object]) -> dict[str, object]:
 @app.post("/api/auth/register")
 def register(request: RegisterRequest, http_request: Request) -> dict[str, object]:
     ratelimit.enforce(f"register:ip:{ratelimit.client_ip(http_request)}", *ratelimit.REGISTER_PER_IP, message="Too many sign-ups from this network. Please try again later.")
+    if tiingo.private_mode():
+        raise HTTPException(403, "Sign-up is closed: this deployment is private.")
     if request.accept_terms is not True:
         raise HTTPException(400, "You must accept the Terms, Privacy notice and Risk disclosure to create an account.")
     user, error = create_user(request.name, request.email, request.password, terms_accepted_at=int(time.time()))
@@ -354,15 +386,17 @@ def status() -> dict[str, object]:
     return {
         # Never include connection strings or secret values: only reachability and set/missing.
         "database": {"ok": db.ping(), "engine": db.engine()},
-        "config": {"anthropic_api_key": _config_flag("ANTHROPIC_API_KEY"), "sec_user_agent": _config_flag("SEC_USER_AGENT"), "job_token": _config_flag("JOB_TOKEN")},
-        "market_data": {"mode": os.getenv("MARKET_DATA_MODE", "live"), "provider": "Yahoo Finance chart API (unofficial; personal research use)", **provider_health()},
+        "config": {"anthropic_api_key": _config_flag("ANTHROPIC_API_KEY"), "sec_user_agent": _config_flag("SEC_USER_AGENT"), "job_token": _config_flag("JOB_TOKEN"), "tiingo_api_key": _config_flag("TIINGO_API_KEY")},
+        "access": {"private_mode": tiingo.private_mode(), "note": "OWNER_USER_IDS set: only those accounts can see data and sign-up is closed." if tiingo.private_mode() else "Public: anyone can sign up."},
+        "market_data": {"mode": os.getenv("MARKET_DATA_MODE", "live"), "provider": market_data_module.provider_label(), **provider_health()},
+        "tiingo": tiingo.health(),
         "fundamentals": {"mode": os.getenv("FUNDAMENTALS_MODE", "live"), "sec_enabled": sec_user_agent() is not None, "note": "Set SEC_USER_AGENT to 'Name email@domain' to enable SEC EDGAR fundamentals."},
         "assistant": {"provider": llm.provider(), "daily_limit": int(os.getenv("ASSISTANT_DAILY_LIMIT", "20")), "note": "Set ANTHROPIC_API_KEY (or OPENAI_API_KEY) to enable generated answers; without one the assistant lists evidence only."},
         "daily_job": {"enabled": len(os.getenv("JOB_TOKEN", "")) >= 24},
         "paper_broker": {"enabled": gateway.paper_enabled},
         "live_trading": {"enabled": False, "note": "Live execution is blocked in this build."},
         "portfolio": {"source": "Per-user holdings (signed in); /api/portfolio remains a labelled sample"},
-        "price_history": {"provider": "Yahoo Finance chart API (unofficial; personal research use)", "demo_mode": os.getenv("MARKET_DATA_MODE", "live") == "demo"},
+        "price_history": {"provider": f"{tiingo.HISTORY_PROVIDER} for US stocks; Yahoo Finance chart API (unofficial) for other listings" if tiingo.enabled() else "Yahoo Finance chart API (unofficial; personal research use)", "demo_mode": os.getenv("MARKET_DATA_MODE", "live") == "demo"},
     }
 
 

@@ -58,6 +58,21 @@ The working vertical slice includes:
 
 The backend defaults to `MARKET_DATA_MODE=live`. It attempts to retrieve supported US/European quotes through the market-data adapter and falls back to the internal deterministic dataset if the provider is unavailable. Set `MARKET_DATA_MODE=demo` to force demo mode during development.
 
+### US market data from Tiingo (licensed API)
+
+With `TIINGO_API_KEY` set, the 18 US-listed stocks get quotes from Tiingo's 24x5 consolidated
+snapshot (one request for all tickers, cached 10 minutes) and daily history from Tiingo's
+end-of-day API (split- and dividend-adjusted close; one request per ticker, cached 12 hours in
+memory and in the database). A local budget (default 40 requests/hour, 800/day) stays under the
+free plan's 50/hour and 1,000/day. European and Ghanaian listings are not covered by Tiingo.
+
+Licence: Tiingo's free plan is "internal use only: you may only use the data for your own
+personal use and you may not display or share the data with another person or organization"
+(tiingo.com/about/pricing, checked 2026-11-24). The key is therefore ignored unless either
+`OWNER_USER_IDS` is set (private mode: only those accounts can read data and sign-up is closed;
+your id is shown under Settings > My data) or `TIINGO_LICENSE=commercial` is set by an operator
+whose Tiingo plan allows showing data to others. Settings > Server status shows which applies.
+
 GSE symbols currently remain on the deterministic fallback because a supported GSE feed has not yet been configured. The adapter boundary is intentionally provider-neutral so a licensed GSE source can be added without changing scoring logic.
 
 **Important:** a live quote is not the same as live fundamentals, news, or portfolio data. Those remain separate milestones. No broker credential or order execution is connected.
