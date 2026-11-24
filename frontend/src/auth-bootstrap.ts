@@ -232,6 +232,26 @@ window.addEventListener(SESSION_EXPIRED_EVENT, () => {
   gate("Your session has expired or was signed out. Please sign in again.", false);
 });
 
+// Another tab of this site signed out or signed in (localStorage is shared; the "storage" event
+// only fires in the OTHER tabs). Follow it here so a tab never keeps showing a session that ended.
+window.addEventListener("storage", (event: StorageEvent) => {
+  // key null means another tab cleared all of this site's storage.
+  if (event.key !== tokenKey && event.key !== null) return;
+  const had = event.key === null ? !!document.getElementById("ii-account") : event.oldValue !== null;
+  const now = event.key === null ? null : event.newValue;
+  if (event.key !== null && event.oldValue === event.newValue) return;
+  if (now === null) {
+    if (!had) return;
+    // Signed out elsewhere: end the session in this tab too (no reload, so nothing is lost silently).
+    document.getElementById("ii-account")?.remove();
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+    gate("You were signed out in another tab. Please sign in again.", false);
+  } else {
+    // Signed in (possibly as another account) elsewhere: reload so this tab uses that session cleanly.
+    location.reload();
+  }
+});
+
 async function boot() {
   if (STATIC_HOST) return;
   let token: string | null = null;
