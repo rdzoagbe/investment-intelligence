@@ -10,11 +10,15 @@ export const USER_KEY = "ii_user";
 export const AUTH_CHANGED_EVENT = "ii-auth-changed";
 /** Fired on window when an authenticated request is rejected with 401: the sign-in gate re-opens. */
 export const SESSION_EXPIRED_EVENT = "ii-session-expired";
+/** The server answered after a slow start: the app re-detects API mode if it fell back to demo. */
+export const SERVER_READY_EVENT = "ii-server-ready";
 
 export type Mode = { kind: "loading" } | { kind: "api" } | { kind: "demo"; reason: string };
 export const signedIn = () => { try { return !!localStorage.getItem(TOKEN_KEY); } catch { return false; } };
+/** Last successful research view, shown (labelled as a saved copy) while the server wakes up. */
+export const SAVED_VIEW_KEY = "ii_saved_view";
 export function clearSession() {
-  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch { /* storage unavailable */ }
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); localStorage.removeItem(SAVED_VIEW_KEY); } catch { /* storage unavailable */ }
 }
 function readToken(): string | null {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }

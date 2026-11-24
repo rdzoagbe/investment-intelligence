@@ -5,6 +5,7 @@ import os
 import re
 import threading
 import time
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Query, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,7 +29,13 @@ from .intelligence import bull_bear, macro_snapshot, market_intelligence
 from .market_data import provider_health, index_quotes, live_quotes, market_data_status
 from .portfolio import Holding, portfolio_snapshot, risk_metrics
 
-app = FastAPI(title="Investment Intelligence API", version="1.2.0")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _warm_caches()
+    yield
+
+
+app = FastAPI(title="Investment Intelligence API", version="1.2.0", lifespan=_lifespan)
 cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["*"])
 log = logging.getLogger("investment_intelligence")
@@ -398,6 +405,19 @@ def status() -> dict[str, object]:
         "portfolio": {"source": "Per-user holdings (signed in); /api/portfolio remains a labelled sample"},
         "price_history": {"provider": f"{tiingo.HISTORY_PROVIDER} for US stocks; Yahoo Finance chart API (unofficial) for other listings" if tiingo.enabled() else "Yahoo Finance chart API (unofficial; personal research use)", "demo_mode": os.getenv("MARKET_DATA_MODE", "live") == "demo"},
     }
+
+
+def _warm_caches() -> None:
+    """Start loading prices, history and filings as soon as the server boots, so the first page
+    after a free server wakes up waits on one shared load instead of starting it."""
+    if os.getenv("WARM_CACHES_ON_START", "true").strip().lower() in {"0", "false", "no", "off"}:
+        return
+
+    def run() -> None:
+        try: scanner(100)
+        except Exception as exc:  # noqa: BLE001 - warm-up must never affect the server
+            log.warning("cache warm-up failed: %s", type(exc).__name__)
+    threading.Thread(target=run, name="cache-warm-up", daemon=True).start()
 
 
 def _snapshot_in_background() -> None:
