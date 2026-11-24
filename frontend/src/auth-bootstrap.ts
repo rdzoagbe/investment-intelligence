@@ -1,5 +1,5 @@
 import "./auth.css";
-import { API_BASE, AUTH_CHANGED_EVENT, SAVED_VIEW_KEY, SESSION_EXPIRED_EVENT, STATIC_HOST, TOKEN_KEY as tokenKey, USER_KEY as userKey, clearSession, serverUnavailable } from "./lib";
+import { API_BASE, AUTH_CHANGED_EVENT, SAVED_VIEW_KEY, SERVER_READY_EVENT, SESSION_EXPIRED_EVENT, STATIC_HOST, TOKEN_KEY as tokenKey, USER_KEY as userKey, clearSession, serverUnavailable } from "./lib";
 import { LEGAL, LEGAL_DRAFT_NOTICE, type LegalKey } from "./legal-pages";
 
 type User = { id: number; name: string; email: string; created_at: number };
@@ -246,9 +246,14 @@ async function boot() {
   // Confirm the session. With an optimistic start, a server that is still waking (timeout, 5xx)
   // is retried; once it answers, AUTH_CHANGED makes the app re-detect API mode, and a 401 at any
   // point still ends in the sign-in gate.
+  // Stop as soon as the stored session is no longer the one this check started with (signed out,
+  // expired elsewhere, or a new sign-in): acting on the old token could undo a newer session.
+  const stillCurrent = () => { try { return localStorage.getItem(tokenKey) === token; } catch { return false; } };
   for (let attempt = 0; ; attempt++) {
+    if (!stillCurrent()) return;
     try {
       const response = await api("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
+      if (!stillCurrent()) return;
       if (response.status === 401) { clearSession(); document.getElementById("ii-account")?.remove(); root.style.visibility = "hidden"; gate(); return; }
       const user = await jsonOrNull(response);
       if (response.ok && user) {
@@ -258,7 +263,8 @@ async function boot() {
         localStorage.setItem(userKey, JSON.stringify(user));
         root.style.visibility = "visible";
         showAccount(user as unknown as User);
-        if (optimistic && (attempt > 0 || (user as unknown as User).id !== stored!.id)) window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+        if (optimistic && (user as unknown as User).id !== stored!.id) window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+        else if (attempt > 0) window.dispatchEvent(new CustomEvent(SERVER_READY_EVENT));
         return;
       }
       if (!optimistic) { gate("The account server returned an error. Try again later or continue with demo data."); return; }

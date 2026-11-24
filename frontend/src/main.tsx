@@ -4,7 +4,7 @@ import { Bell, BookOpen, BrainCircuit, Sparkles, Trophy, CircleDollarSign, Datab
 import demoSnapshot from "./demo-snapshot.json";
 import { AlertsPage, AssistantPage, TrackRecordPage } from "./insight-pages";
 import { BacktestPage, JournalPage, MyPortfolioPage, PaperTradingPage, PriceHistoryPanel, SaveToJournal } from "./account-pages";
-import { API_BASE, AUTH_CHANGED_EVENT, SAVED_VIEW_KEY, USER_KEY, STATIC_HOST, api, band, clearSession, cls, describeError, download, Header, isAbort, Kpi, money, num, pct, signedIn, statusCls, when, type Mode } from "./lib";
+import { API_BASE, AUTH_CHANGED_EVENT, SAVED_VIEW_KEY, SERVER_READY_EVENT, USER_KEY, STATIC_HOST, api, band, clearSession, cls, describeError, download, Header, isAbort, Kpi, money, num, pct, signedIn, statusCls, when, type Mode } from "./lib";
 import { LegalPage } from "./legal-pages";
 import "./styles.css";
 
@@ -89,6 +89,14 @@ function App() {
       .catch(e => useDemo(`The research API could not be used: ${describeError(e)}`));
   }, []);
   useEffect(probe, [probe]);
+  // A server that answered late (slow cold start) re-detects API mode only if the app fell back to demo;
+  // pages are not remounted, so nothing the user is typing is lost.
+  const modeRef = useRef(mode); modeRef.current = mode;
+  useEffect(() => {
+    const onReady = () => { if (modeRef.current.kind === "demo" && !STATIC_HOST) probe(); };
+    window.addEventListener(SERVER_READY_EVENT, onReady);
+    return () => window.removeEventListener(SERVER_READY_EVENT, onReady);
+  }, [probe]);
   // A successful sign-in after a failed first probe (e.g. a server cold start) re-detects API mode.
   useEffect(() => { if (authTick > 0 && mode.kind === "demo" && !STATIC_HOST) probe(); }, [authTick]);
 
