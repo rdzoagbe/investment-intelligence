@@ -112,7 +112,7 @@ function App() {
           <div className="page-heading"><h1>{page}</h1><span className="today">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span></div>
           {mode.kind === "loading" && !LEGAL_PAGES.includes(page) ? <>
             <div className="card pad">Connecting to the research API… A free-tier server can take up to a minute to wake up.</div>
-            {saved && (page === "Command Center" || page === "Opportunity Scanner") && <SavedViewPanel saved={saved} search={search} onOpen={setSelected} />}
+            {saved && (page === "Command Center" || page === "Opportunity Scanner") && <SavedViewPanel saved={saved} search={search} />}
           </> :
             <PageBody key={authTick} page={page} mode={mode} universe={scan} filtered={filtered} search={search} markets={markets} dashError={dash.error} macro={macro} onOpen={setSelected} onUnread={setUnread} onNavigate={setPage} />}
         </div>
@@ -149,13 +149,18 @@ function writeSavedView(v: Omit<SavedView, "user_id">) {
   if (!signedIn() || uid == null) return;
   try { localStorage.setItem(SAVED_VIEW_KEY, JSON.stringify({ ...v, user_id: uid })); } catch { /* storage unavailable or full */ }
 }
-function SavedViewPanel({ saved, search, onOpen }: { saved: SavedView; search: string; onOpen: (s: string) => void }) {
+function SavedViewPanel({ saved, search }: { saved: SavedView; search: string }) {
   const q = search.trim().toLowerCase();
-  // Saved prices are never shown with a LIVE badge or a "today" change: they are a past copy.
-  const rows = saved.scan.filter(a => `${a.symbol} ${a.name} ${a.market}`.toLowerCase().includes(q)).map(a => ({ ...a, price_status: "SAVED", change_pct: null }));
+  const rows = saved.scan.filter(a => `${a.symbol} ${a.name} ${a.market}`.toLowerCase().includes(q));
+  // Read-only: nothing can be opened from a past copy, and saved prices never carry a LIVE badge or a "today" change.
   return <section className="card pad">
-    <div className="banner warn inline"><Database size={15} aria-hidden="true" /> <span><b>Saved copy from {when(Math.floor(saved.saved_at / 1000))} — not current.</b> Shown from this browser while the server wakes up. It is replaced automatically by fresh figures; do not use it for decisions.</span></div>
-    <Scanner scan={rows} total={saved.scan.length} onOpen={onOpen} />
+    <div className="banner warn inline"><Database size={15} aria-hidden="true" /> <span><b>Saved copy from {when(Math.floor(saved.saved_at / 1000))} — not current.</b> Shown from this browser while the server wakes up. It is replaced automatically by fresh figures; do not use it for decisions. Details open once the server answers.</span></div>
+    {rows.length ? <div className="table-wrap"><table className="table">
+      <thead><tr><th>Asset</th><th>Market</th><th className="r">Saved price</th><th className="r">Score</th><th>Band</th><th>Price data</th></tr></thead>
+      <tbody>{rows.map(a => { const b = band(a.score); return <tr key={a.symbol}>
+        <td><b>{a.name}</b><small>{a.symbol}</small></td><td>{a.market}</td><td className="r">{money(a.price, a.currency)}</td><td className="r"><b>{a.score.toFixed(1)}</b></td>
+        <td><span className={`badge ${b.cls}`}>{a.band ?? b.label}</span></td><td><span className="badge">SAVED</span></td></tr>; })}</tbody>
+    </table></div> : <p className="muted">No assets match this filter.</p>}
   </section>;
 }
 

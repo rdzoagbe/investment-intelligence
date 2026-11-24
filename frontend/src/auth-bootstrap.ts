@@ -243,23 +243,30 @@ async function boot() {
   try { stored = JSON.parse(localStorage.getItem(userKey) || "null") as User | null; } catch { stored = null; }
   const optimistic = !!stored && typeof stored.id === "number";
   if (optimistic) { root.style.visibility = "visible"; showAccount(stored as User); }
-  try {
-    const response = await api("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
-    if (response.status === 401) { clearSession(); document.getElementById("ii-account")?.remove(); root.style.visibility = "hidden"; gate(); return; }
-    const user = await jsonOrNull(response);
-    if (!response.ok || !user) {
-      if (!optimistic) gate("The account server returned an error. Try again later or continue with demo data.");
-      return;
+  // Confirm the session. With an optimistic start, a server that is still waking (timeout, 5xx)
+  // is retried; once it answers, AUTH_CHANGED makes the app re-detect API mode, and a 401 at any
+  // point still ends in the sign-in gate.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await api("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
+      if (response.status === 401) { clearSession(); document.getElementById("ii-account")?.remove(); root.style.visibility = "hidden"; gate(); return; }
+      const user = await jsonOrNull(response);
+      if (response.ok && user) {
+        if (optimistic && (user as unknown as User).id !== stored!.id) {
+          try { localStorage.removeItem(SAVED_VIEW_KEY); } catch { /* storage unavailable */ }
+        }
+        localStorage.setItem(userKey, JSON.stringify(user));
+        root.style.visibility = "visible";
+        showAccount(user as unknown as User);
+        if (optimistic && (attempt > 0 || (user as unknown as User).id !== stored!.id)) window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+        return;
+      }
+      if (!optimistic) { gate("The account server returned an error. Try again later or continue with demo data."); return; }
+    } catch {
+      if (!optimistic) { gate("The account server is not reachable right now. A free server can take a minute to wake up."); return; }
     }
-    if (optimistic && (user as unknown as User).id !== stored!.id) {
-      try { localStorage.removeItem(SAVED_VIEW_KEY); } catch { /* storage unavailable */ }
-      window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
-    }
-    localStorage.setItem(userKey, JSON.stringify(user));
-    root.style.visibility = "visible";
-    showAccount(user as unknown as User);
-  } catch {
-    if (!optimistic) gate("The account server is not reachable right now. A free server can take a minute to wake up.");
+    if (attempt >= 20) return;  // ~5 minutes of retries; the app shows its own connection status meanwhile
+    await new Promise(resolve => setTimeout(resolve, 15000));
   }
 }
 
