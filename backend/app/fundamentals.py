@@ -239,11 +239,19 @@ def sec_fundamentals(symbol: str) -> FundamentalSnapshot | None:
 # Parsed snapshots (a few hundred bytes, not the multi-MB filing) are also kept in the database so a
 # restarted free server does not download every company's filings again before the first page loads.
 _SNAPSHOT_FIELDS = {f.name for f in fields(FundamentalSnapshot)}
+# Bump when the filing parser changes so snapshots made by older code are not reused.
+_PARSER_VERSION = 1
+
+
+def _db_key(key: str) -> str:
+    return f"sec:snapshot:v{_PARSER_VERSION}:{key}"
 
 
 def _db_load(key: str) -> tuple[float, "FundamentalSnapshot | None", float] | None:
+    if not sec_user_agent() or key not in _SEC_CIK:
+        return None  # the adapter is off for this symbol now: never serve an older stored result
     try:
-        row = db.fetch_one("SELECT fetched_at, payload FROM provider_cache WHERE cache_key=?", (f"sec:snapshot:{key}",))
+        row = db.fetch_one("SELECT fetched_at, payload FROM provider_cache WHERE cache_key=?", (_db_key(key),))
     except Exception:  # noqa: BLE001 - optional cache; a database problem must not break fundamentals
         return None
     if not row:
@@ -265,7 +273,7 @@ def _db_store(key: str, result: "FundamentalSnapshot | None") -> None:
     try:
         db.execute("INSERT INTO provider_cache (cache_key, fetched_at, payload) VALUES (?, ?, ?) "
                    "ON CONFLICT (cache_key) DO UPDATE SET fetched_at = excluded.fetched_at, payload = excluded.payload",
-                   (f"sec:snapshot:{key}", int(time.time()), json.dumps({"snapshot": asdict(result) if result else None})))
+                   (_db_key(key), int(time.time()), json.dumps({"snapshot": asdict(result) if result else None})))
     except Exception:  # noqa: BLE001 - optional cache
         pass
 

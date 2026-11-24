@@ -1,5 +1,5 @@
 import "./auth.css";
-import { API_BASE, AUTH_CHANGED_EVENT, SESSION_EXPIRED_EVENT, STATIC_HOST, TOKEN_KEY as tokenKey, USER_KEY as userKey, clearSession, serverUnavailable } from "./lib";
+import { API_BASE, AUTH_CHANGED_EVENT, SAVED_VIEW_KEY, SESSION_EXPIRED_EVENT, STATIC_HOST, TOKEN_KEY as tokenKey, USER_KEY as userKey, clearSession, serverUnavailable } from "./lib";
 import { LEGAL, LEGAL_DRAFT_NOTICE, type LegalKey } from "./legal-pages";
 
 type User = { id: number; name: string; email: string; created_at: number };
@@ -211,6 +211,8 @@ function gate(message = "", showDemo = !!message, startInSignup = false) {
         reset(); return;
       }
       if (!data || typeof data.access_token !== "string" || !data.user) { setError(UNAVAILABLE); showDemoButton(); reset(); return; }
+      // A new sign-in never inherits another session's saved research view.
+      try { localStorage.removeItem(SAVED_VIEW_KEY); } catch { /* storage unavailable */ }
       localStorage.setItem(tokenKey, data.access_token);
       localStorage.setItem(userKey, JSON.stringify(data.user));
       backdrop.remove();
@@ -235,16 +237,29 @@ async function boot() {
   let token: string | null = null;
   try { token = localStorage.getItem(tokenKey); } catch { /* storage unavailable */ }
   if (!token) { landing(); return; }
+  // With a stored session, show the app at once (it says it is connecting and may show this
+  // account's labelled saved copy) while the server, which can take a minute to wake, confirms it.
+  let stored: User | null = null;
+  try { stored = JSON.parse(localStorage.getItem(userKey) || "null") as User | null; } catch { stored = null; }
+  const optimistic = !!stored && typeof stored.id === "number";
+  if (optimistic) { root.style.visibility = "visible"; showAccount(stored as User); }
   try {
     const response = await api("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
-    if (response.status === 401) { clearSession(); gate(); return; }
+    if (response.status === 401) { clearSession(); document.getElementById("ii-account")?.remove(); root.style.visibility = "hidden"; gate(); return; }
     const user = await jsonOrNull(response);
-    if (!response.ok || !user) { gate("The account server returned an error. Try again later or continue with demo data."); return; }
+    if (!response.ok || !user) {
+      if (!optimistic) gate("The account server returned an error. Try again later or continue with demo data.");
+      return;
+    }
+    if (optimistic && (user as unknown as User).id !== stored!.id) {
+      try { localStorage.removeItem(SAVED_VIEW_KEY); } catch { /* storage unavailable */ }
+      window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT));
+    }
     localStorage.setItem(userKey, JSON.stringify(user));
     root.style.visibility = "visible";
     showAccount(user as unknown as User);
   } catch {
-    gate("The account server is not reachable right now. A free server can take a minute to wake up.");
+    if (!optimistic) gate("The account server is not reachable right now. A free server can take a minute to wake up.");
   }
 }
 
