@@ -4,7 +4,7 @@ import { Bell, BookOpen, BrainCircuit, Sparkles, Trophy, CircleDollarSign, Datab
 import demoSnapshot from "./demo-snapshot.json";
 import { AlertsPage, AssistantPage, TrackRecordPage } from "./insight-pages";
 import { BacktestPage, JournalPage, MyPortfolioPage, PaperTradingPage, PriceHistoryPanel, SaveToJournal } from "./account-pages";
-import { API_BASE, AUTH_CHANGED_EVENT, STATIC_HOST, api, band, clearSession, cls, describeError, download, Header, isAbort, Kpi, money, num, pct, signedIn, statusCls, type Mode } from "./lib";
+import { API_BASE, AUTH_CHANGED_EVENT, SAVED_VIEW_KEY, STATIC_HOST, api, band, clearSession, cls, describeError, download, Header, isAbort, Kpi, money, num, pct, signedIn, statusCls, when, type Mode } from "./lib";
 import { LegalPage } from "./legal-pages";
 import "./styles.css";
 
@@ -47,6 +47,8 @@ function App() {
   const [unread, setUnread] = useState(0);
   const [authTick, setAuthTick] = useState(0);
   const probeId = useRef(0);
+  // Last successful view, kept in this browser so the page is usable while a free server wakes up.
+  const [saved] = useState<SavedView | null>(readSavedView);
 
   // Sign-in, sign-out and session expiry (auth-bootstrap.ts / lib.api) re-render account-dependent views.
   useEffect(() => {
@@ -73,6 +75,7 @@ function App() {
       .then(s => {
         if (!current()) return;
         setScan(s.items); setMode({ kind: "api" });
+        writeSavedView({ saved_at: Date.now(), scan: s.items });
         api<Dashboard>("/api/dashboard", { timeoutMs: 60000 })
           .then(d => { if (current()) { setMarkets(d.markets); setMacro(d.macro); setDash({ status: d.data_status }); } })
           .catch(e => {
@@ -105,7 +108,10 @@ function App() {
       <div className="workspace">
         <div className="primary">
           <div className="page-heading"><h1>{page}</h1><span className="today">{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span></div>
-          {mode.kind === "loading" && !LEGAL_PAGES.includes(page) ? <div className="card pad">Connecting to the research API… A free-tier server can take up to a minute to wake up.</div> :
+          {mode.kind === "loading" && !LEGAL_PAGES.includes(page) ? <>
+            <div className="card pad">Connecting to the research API… A free-tier server can take up to a minute to wake up.</div>
+            {saved && (page === "Command Center" || page === "Opportunity Scanner") && <SavedViewPanel saved={saved} search={search} />}
+          </> :
             <PageBody key={authTick} page={page} mode={mode} universe={scan} filtered={filtered} search={search} markets={markets} dashError={dash.error} macro={macro} onOpen={setSelected} onUnread={setUnread} onNavigate={setPage} />}
         </div>
         <aside className="rightbar"><SourcesPanel mode={mode} scan={scan} /><MacroPanel macro={macro} /><Disclaimer /></aside>
@@ -119,6 +125,31 @@ function App() {
 }
 
 const LEGAL_PAGES: Page[] = ["Terms", "Privacy", "Risk disclosure"];
+
+// ---------- Saved copy shown while the server wakes up ----------
+type SavedView = { saved_at: number; scan: ScanItem[] };
+const SAVED_MAX_AGE_MS = 24 * 3600 * 1000;
+function readSavedView(): SavedView | null {
+  if (!signedIn()) return null;
+  try {
+    const v = JSON.parse(localStorage.getItem(SAVED_VIEW_KEY) || "null") as SavedView | null;
+    if (!v || typeof v.saved_at !== "number" || !Array.isArray(v.scan) || !v.scan.length) return null;
+    return Date.now() - v.saved_at < SAVED_MAX_AGE_MS ? v : null;
+  } catch { return null; }
+}
+function writeSavedView(v: SavedView) {
+  // Only for signed-in users, and cleared on sign-out (lib.clearSession).
+  if (!signedIn()) return;
+  try { localStorage.setItem(SAVED_VIEW_KEY, JSON.stringify(v)); } catch { /* storage unavailable or full */ }
+}
+function SavedViewPanel({ saved, search }: { saved: SavedView; search: string }) {
+  const q = search.trim().toLowerCase();
+  const rows = saved.scan.filter(a => `${a.symbol} ${a.name} ${a.market}`.toLowerCase().includes(q));
+  return <section className="card pad">
+    <div className="banner warn inline"><Database size={15} aria-hidden="true" /> <span><b>Saved copy from {when(Math.floor(saved.saved_at / 1000))} — not current.</b> Shown from this browser while the server wakes up. It is replaced automatically by fresh figures; do not use it for decisions.</span></div>
+    <Scanner scan={rows} total={saved.scan.length} onOpen={() => undefined} />
+  </section>;
+}
 
 /** Accessible modal: dialog semantics, focus moved in and trapped, Escape closes, focus returns to the opener. */
 function AssetModal({ symbol, mode, onClose }: { symbol: string; mode: Mode; onClose: () => void }) {

@@ -13,8 +13,10 @@ export const SESSION_EXPIRED_EVENT = "ii-session-expired";
 
 export type Mode = { kind: "loading" } | { kind: "api" } | { kind: "demo"; reason: string };
 export const signedIn = () => { try { return !!localStorage.getItem(TOKEN_KEY); } catch { return false; } };
+/** Last successful research view, shown (labelled as a saved copy) while the server wakes up. */
+export const SAVED_VIEW_KEY = "ii_saved_view";
 export function clearSession() {
-  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch { /* storage unavailable */ }
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); localStorage.removeItem(SAVED_VIEW_KEY); } catch { /* storage unavailable */ }
 }
 function readToken(): string | null {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }

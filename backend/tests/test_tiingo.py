@@ -236,3 +236,28 @@ def test_outage_pauses_retries(monkeypatch):
     for symbol in ("AAPL", "MSFT", "NVDA"):
         history.price_history(symbol, "1y")
     assert len(calls) == 1 and tiingo.health()["paused_until"] != "not paused"
+
+
+def test_sec_snapshot_survives_restart_via_database(monkeypatch):
+    from app import fundamentals
+    calls = []
+    monkeypatch.setenv("SEC_USER_AGENT", "Test test@example.com")
+    snap = fundamentals.FundamentalSnapshot("MSFT", 2026, 1.0, 0.5, 0.3, 10.0, 1.0, 2.0, 10.0, 50.0, 30.0, -1.0, "SEC Company Facts FY2026", "LIVE")
+    monkeypatch.setattr(fundamentals, "_sec_fundamentals_uncached", lambda key: calls.append(key) or snap)
+    assert fundamentals.sec_fundamentals("MSFT") == snap
+    fundamentals._SEC_CACHE.clear()  # simulate a restart
+    assert fundamentals.sec_fundamentals("MSFT") == snap and calls == ["MSFT"]
+
+
+def test_startup_warm_up_runs_scanner(monkeypatch):
+    from app import main
+    ran = []
+    monkeypatch.setenv("WARM_CACHES_ON_START", "true")
+    monkeypatch.setattr(main, "scanner", lambda n: ran.append(n))
+    with TestClient(app):
+        pass
+    import time as _t
+    for _ in range(50):
+        if ran: break
+        _t.sleep(0.02)
+    assert ran == [100]

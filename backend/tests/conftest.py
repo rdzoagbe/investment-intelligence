@@ -19,11 +19,14 @@ def isolated_db(tmp_path, monkeypatch):
     # The dashboard's fire-and-forget snapshot thread could outlive the test and write to
     # another test's database; tests of that hook enable it explicitly.
     monkeypatch.setenv("DASHBOARD_DAILY_SNAPSHOT", "false")
+    monkeypatch.setenv("WARM_CACHES_ON_START", "false")
     monkeypatch.delenv("TIINGO_API_KEY", raising=False)
     monkeypatch.delenv("TIINGO_LICENSE", raising=False)
     monkeypatch.delenv("OWNER_USER_IDS", raising=False)
-    from app import history, market_data, ratelimit, tiingo
+    from app import fundamentals, history, market_data, ratelimit, tiingo
     tiingo.reset_for_tests()
+    with fundamentals._SEC_CACHE_LOCK:
+        fundamentals._SEC_CACHE.clear()
     ratelimit.reset()
     history._CACHE.clear()
     market_data._CACHE.clear()

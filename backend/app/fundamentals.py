@@ -5,10 +5,11 @@ import json
 import os
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, fields
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from . import db
 from .data import AssetSnapshot, get_asset
 
 
@@ -216,14 +217,57 @@ def sec_fundamentals(symbol: str) -> FundamentalSnapshot | None:
         found, value = cached()
         if found:
             return value
+        stored = _db_load(key)
+        if stored is not None:
+            fetched_at, result, ttl = stored
+            with _SEC_CACHE_LOCK:
+                _SEC_CACHE[key] = (fetched_at, result, ttl)
+            return result
         try:
             result = _sec_fundamentals_uncached(key)
             ttl = _SUCCESS_TTL if result else _TRANSIENT_FAILURE_TTL
+            if result is not None:
+                _db_store(key, result)
         except _StructuralMiss:
             result, ttl = None, _STRUCTURAL_FAILURE_TTL
+            _db_store(key, None)
         with _SEC_CACHE_LOCK:
             _SEC_CACHE[key] = (time.time(), result, ttl)
         return result
+
+
+# Parsed snapshots (a few hundred bytes, not the multi-MB filing) are also kept in the database so a
+# restarted free server does not download every company's filings again before the first page loads.
+_SNAPSHOT_FIELDS = {f.name for f in fields(FundamentalSnapshot)}
+
+
+def _db_load(key: str) -> tuple[float, "FundamentalSnapshot | None", float] | None:
+    try:
+        row = db.fetch_one("SELECT fetched_at, payload FROM provider_cache WHERE cache_key=?", (f"sec:snapshot:{key}",))
+    except Exception:  # noqa: BLE001 - optional cache; a database problem must not break fundamentals
+        return None
+    if not row:
+        return None
+    try:
+        payload = json.loads(row["payload"])
+        fetched_at = float(row["fetched_at"])
+        snap = payload.get("snapshot")
+        result = FundamentalSnapshot(**{k: v for k, v in snap.items() if k in _SNAPSHOT_FIELDS}) if isinstance(snap, dict) else None
+    except (TypeError, ValueError, AttributeError):
+        return None
+    ttl = _SUCCESS_TTL if result is not None else _STRUCTURAL_FAILURE_TTL
+    if time.time() - fetched_at >= ttl:
+        return None
+    return fetched_at, result, ttl
+
+
+def _db_store(key: str, result: "FundamentalSnapshot | None") -> None:
+    try:
+        db.execute("INSERT INTO provider_cache (cache_key, fetched_at, payload) VALUES (?, ?, ?) "
+                   "ON CONFLICT (cache_key) DO UPDATE SET fetched_at = excluded.fetched_at, payload = excluded.payload",
+                   (f"sec:snapshot:{key}", int(time.time()), json.dumps({"snapshot": asdict(result) if result else None})))
+    except Exception:  # noqa: BLE001 - optional cache
+        pass
 
 
 def _sec_fundamentals_uncached(symbol: str) -> FundamentalSnapshot | None:
