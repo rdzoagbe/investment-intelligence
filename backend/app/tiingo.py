@@ -2,7 +2,8 @@
 
 Endpoints and fields follow Tiingo's public documentation (tiingo.com/documentation):
   * 24x5 Consolidated snapshot, all tickers in one request: GET /tiingo/equity/intraday
-    fields used: ticker, timestamp, tngoLast, prevClose, prevDate
+    fields used: ticker, timestamp, tngoLast (Tiingo's reference price; outside regular hours
+    it reflects extended/overnight trading), prevClose
   * End-of-day prices: GET /tiingo/daily/<ticker>/prices?startDate=YYYY-MM-DD
     fields used: date, adjClose (split- and dividend-adjusted), splitFactor
   * Authentication: header "Authorization: Token <key>" (the key never appears in a URL or log).
@@ -36,7 +37,8 @@ from .data import ASSETS
 BASE_URL = "https://api.tiingo.com"
 QUOTE_PROVIDER = "Tiingo 24x5 consolidated (licensed API)"
 HISTORY_PROVIDER = "Tiingo end-of-day (licensed API; split- and dividend-adjusted close)"
-LICENCE_NOTE = "Tiingo free plan: internal, personal use only; data may not be shown to other people."
+LICENCE_NOTE = ("Tiingo free plan: internal, personal use only; data may not be shown to other people. "
+                "Prices are also included in questions sent to the configured AI provider for the owner's own answers.")
 
 # Internal symbol -> Tiingo ticker, for US-listed USD assets only. Share classes use "-" in
 # Tiingo symbology ("BRK.A" is "BRK-A"), so BRK-B is unchanged.
@@ -45,7 +47,8 @@ _US_MARKETS = {"NASDAQ", "NYSE"}
 TICKERS: dict[str, str] = {a.symbol: _RENAMED.get(a.symbol, a.symbol) for a in ASSETS if a.market in _US_MARKETS and a.currency == "USD"}
 
 _ERRORS: tuple[type[BaseException], ...] = (OSError, http.client.HTTPException, ValueError, TypeError, KeyError, IndexError, AttributeError)
-BACKOFF_SECONDS = 15 * 60
+BACKOFF_SECONDS = 15 * 60          # after 401/403/429
+ERROR_BACKOFF_SECONDS = 5 * 60     # after a network error, 5xx or an error message from Tiingo
 
 
 class Unavailable(Exception):
@@ -96,6 +99,14 @@ _SENT: deque[float] = deque()
 _HEALTH: dict[str, object] = {"last_success": None, "last_error": None, "last_error_at": None, "consecutive_failures": 0, "backoff_until": None}
 
 
+def _seconds(name: str, default: float) -> float:
+    try:
+        value = float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
 def _limits() -> tuple[int, int]:
     def read(name: str, default: int) -> int:
         try:
@@ -121,7 +132,9 @@ def _reserve() -> None:
         _SENT.append(now)
 
 
-def _record(ok: bool, error: str | None = None, backoff: bool = False) -> None:
+def _record(ok: bool, error: str | None = None, backoff: float = 0.0) -> None:
+    """Record the outcome. Any failure pauses calls for `backoff` seconds so retries cannot
+    drain the request budget during an outage."""
     now = time.time()
     with _LOCK:
         if ok:
@@ -129,7 +142,8 @@ def _record(ok: bool, error: str | None = None, backoff: bool = False) -> None:
         else:
             _HEALTH.update(last_error=error, last_error_at=now, consecutive_failures=int(_HEALTH["consecutive_failures"]) + 1)  # type: ignore[arg-type]
             if backoff:
-                _HEALTH["backoff_until"] = now + BACKOFF_SECONDS
+                current = _HEALTH["backoff_until"]
+                _HEALTH["backoff_until"] = max(now + backoff, current if isinstance(current, (int, float)) else 0.0)
 
 
 def health() -> dict[str, object]:
@@ -161,17 +175,17 @@ def _get(path: str, params: dict[str, str] | None = None, timeout: float = 15.0)
         with urlopen(request, timeout=timeout) as response:  # noqa: S310 - fixed https host
             data = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        _record(False, f"HTTP {exc.code} {exc.reason}", backoff=exc.code in (401, 403, 429))
+        _record(False, f"HTTP {exc.code} {exc.reason}", backoff=BACKOFF_SECONDS if exc.code in (401, 403, 429) else ERROR_BACKOFF_SECONDS if exc.code >= 500 else 0.0)
         raise Unavailable(f"HTTP {exc.code}") from exc
     except URLError as exc:
-        _record(False, f"network error: {exc.reason}")
+        _record(False, f"network error: {exc.reason}", backoff=ERROR_BACKOFF_SECONDS)
         raise Unavailable("network error") from exc
     except _ERRORS as exc:
-        _record(False, f"{type(exc).__name__}"[:200])
+        _record(False, f"{type(exc).__name__}"[:200], backoff=ERROR_BACKOFF_SECONDS)
         raise Unavailable(type(exc).__name__) from exc
     # Tiingo reports some errors as a JSON object with a "detail" message and HTTP 200.
     if isinstance(data, dict) and "detail" in data and len(data) == 1:
-        _record(False, f"Tiingo: {str(data['detail'])[:160]}")
+        _record(False, f"Tiingo: {str(data['detail'])[:160]}", backoff=ERROR_BACKOFF_SECONDS)
         raise Unavailable("provider error")
     _record(True)
     return data
@@ -220,7 +234,7 @@ def quotes() -> dict[str, dict[str, object]]:
     """Latest quotes for every covered ticker from ONE request, cached (TIINGO_QUOTE_CACHE_SECONDS, default 600)."""
     if not enabled():
         return {}
-    ttl = float(os.getenv("TIINGO_QUOTE_CACHE_SECONDS", "600"))
+    ttl = _seconds("TIINGO_QUOTE_CACHE_SECONDS", 600.0)
     with _QUOTES_LOCK:  # one request at a time; concurrent callers wait for it and share the result
         now = time.time()
         data = _QUOTES["data"]
@@ -272,7 +286,7 @@ def parse_daily(payload: object) -> dict[str, object] | None:
     return {"dates": dates, "closes": closes, "splits": splits}
 
 
-def _db_load(key: str, ttl: float) -> dict[str, object] | None:
+def _db_load(key: str, ttl: float) -> tuple[float, dict[str, object]] | None:
     try:
         row = db.fetch_one("SELECT fetched_at, payload FROM provider_cache WHERE cache_key=?", (key,))
     except Exception:  # noqa: BLE001 - the cache is optional; a database outage must not break prices
@@ -283,7 +297,7 @@ def _db_load(key: str, ttl: float) -> dict[str, object] | None:
         value = json.loads(row["payload"])
     except (TypeError, ValueError):
         return None
-    return value if isinstance(value, dict) else None
+    return (float(row["fetched_at"]), value) if isinstance(value, dict) else None
 
 
 def _db_store(key: str, value: dict[str, object]) -> None:
@@ -304,7 +318,7 @@ def daily_history(symbol: str) -> dict[str, object] | None:
     ticker = ticker_for(symbol)
     if not ticker or not enabled():
         return None
-    ttl = float(os.getenv("TIINGO_HISTORY_CACHE_SECONDS", "43200"))
+    ttl = _seconds("TIINGO_HISTORY_CACHE_SECONDS", 43200.0)
     with _HISTORY_GUARD:
         lock = _HISTORY_LOCKS.setdefault(ticker, threading.Lock())
     with lock:  # concurrent requests for the same ticker share one fetch
@@ -312,7 +326,8 @@ def daily_history(symbol: str) -> dict[str, object] | None:
         if hit and time.time() - hit[0] < (ttl if hit[1] else 300.0):
             return hit[1]
         key = f"tiingo:daily:{ticker}"
-        value = _db_load(key, ttl)
+        stored = _db_load(key, ttl)
+        fetched_at, value = stored if stored else (time.time(), None)
         if value is None:
             start = (date.today() - timedelta(days=365 * HISTORY_YEARS + 10)).isoformat()
             try:
@@ -321,7 +336,8 @@ def daily_history(symbol: str) -> dict[str, object] | None:
                 value = None
             if value is not None:
                 _db_store(key, value)
-        _HISTORY[ticker] = (time.time(), value)
+        # A row loaded from the database keeps its original fetch time, so it expires on schedule.
+        _HISTORY[ticker] = (fetched_at, value)
         return value
 
 

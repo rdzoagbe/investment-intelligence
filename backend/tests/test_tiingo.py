@@ -185,3 +185,54 @@ def test_private_mode_serves_data_to_owner_only(monkeypatch):
     assert r.status_code == 403
     monkeypatch.delenv("OWNER_USER_IDS")
     assert client.get("/api/scanner").status_code == 200
+
+
+def test_daily_job_only_evaluates_owners_in_private_mode(monkeypatch):
+    from app import monitoring
+    from app import db as dbm
+    monkeypatch.setattr(monitoring, "take_snapshot", lambda *a, **k: 0)
+    seen = []
+    monkeypatch.setattr(monitoring, "evaluate_user", lambda uid: seen.append(uid) or 0)
+    for uid in (1, 2):
+        dbm.execute("INSERT INTO alert_rules (user_id, symbol, kind, threshold, active, created_at) VALUES (?, 'AAPL', 'PRICE_ABOVE', 1, 1, 0)", (uid,))
+    monkeypatch.setenv("OWNER_USER_IDS", "2")
+    assert monitoring.run_daily_job()["users_checked"] == 1 and seen == [2]
+    monkeypatch.delenv("OWNER_USER_IDS")
+    seen.clear()
+    monitoring.run_daily_job()
+    assert sorted(seen) == [1, 2]
+
+
+def test_database_rows_keep_their_fetch_time(monkeypatch):
+    enable(monkeypatch)
+    calls = []
+    fake_tiingo(monkeypatch, calls)
+    assert tiingo.daily_history("AAPL")
+    from app import db as dbm
+    dbm.execute("UPDATE provider_cache SET fetched_at = fetched_at - 43000")
+    tiingo._HISTORY.clear()
+    assert tiingo.daily_history("AAPL") and len(calls) == 1  # still within 12 h: served from the database
+    assert tiingo._HISTORY["AAPL"][0] < __import__("time").time() - 42000  # expires on the original schedule
+
+
+def test_bad_cache_setting_falls_back_to_default(monkeypatch):
+    enable(monkeypatch)
+    monkeypatch.setenv("TIINGO_QUOTE_CACHE_SECONDS", "10m")
+    monkeypatch.setenv("TIINGO_HISTORY_CACHE_SECONDS", "abc")
+    calls = []
+    fake_tiingo(monkeypatch, calls)
+    assert market_data.quote_for_asset(get_asset("MSFT")).status == "LIVE"
+    assert history.price_history("MSFT", "1y")
+
+
+def test_outage_pauses_retries(monkeypatch):
+    enable(monkeypatch)
+    calls = []
+    def down(request, timeout=15.0):
+        calls.append(request)
+        raise HTTPError(request.full_url, 503, "Service Unavailable", {}, io.BytesIO(b""))
+    monkeypatch.setattr(tiingo, "urlopen", down)
+    monkeypatch.setattr(market_data, "_fetch_json", lambda *a, **k: (_ for _ in ()).throw(market_data.URLError("off")))
+    for symbol in ("AAPL", "MSFT", "NVDA"):
+        history.price_history(symbol, "1y")
+    assert len(calls) == 1 and tiingo.health()["paused_until"] != "not paused"
