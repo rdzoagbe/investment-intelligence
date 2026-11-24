@@ -12,6 +12,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from . import tiingo
 from .data import ASSETS, AssetSnapshot
 
 
@@ -196,10 +197,24 @@ def _yahoo_fetch(symbol: str, yahoo_symbol: str) -> MarketQuote | None:
         return None
 
 
+def tiingo_quote(symbol: str) -> MarketQuote | None:
+    """Quote from the licensed Tiingo feed for covered US stocks (None when off or missing)."""
+    ticker = tiingo.ticker_for(symbol)
+    if not ticker or not tiingo.enabled():
+        return None
+    row = tiingo.quotes().get(ticker)
+    if not row:
+        return None
+    price, previous = float(row["price"]), row["previous_close"]  # type: ignore[arg-type]
+    change = round((price / float(previous) - 1) * 100, 3) if isinstance(previous, float) else None
+    stamp = row["timestamp"]
+    return MarketQuote(symbol, price, previous if isinstance(previous, float) else None, change, "USD", stamp if isinstance(stamp, int) else None, tiingo.QUOTE_PROVIDER, "LIVE")
+
+
 def quote_for_asset(asset: AssetSnapshot) -> MarketQuote:
     mode = os.getenv("MARKET_DATA_MODE", "live").strip().lower()
     if mode != "demo":
-        live = yahoo_quote(asset.symbol)
+        live = tiingo_quote(asset.symbol) or yahoo_quote(asset.symbol)
         if live:
             return live
     return MarketQuote(asset.symbol, asset.price, round(asset.price / (1 + asset.change_pct / 100), 4), asset.change_pct, asset.currency, None, "Internal deterministic dataset", "DEMO")
@@ -214,11 +229,17 @@ def live_quotes() -> list[dict[str, object]]:
         return [quote_dict(q) for q in pool.map(quote_for_asset, ASSETS)]
 
 
+def provider_label() -> str:
+    if tiingo.enabled():
+        return f"{tiingo.QUOTE_PROVIDER} for US stocks; Yahoo Finance chart API (unofficial) for other listings"
+    return "Yahoo Finance chart API (unofficial; personal research use)"
+
+
 def market_data_status() -> dict[str, object]:  # noqa: D401
     mode = os.getenv("MARKET_DATA_MODE", "live").strip().lower()
     quotes = live_quotes()
     live_count = sum(q["status"] == "LIVE" for q in quotes)
-    return {"mode": mode, "provider": "Yahoo Finance chart API", "live_quotes": live_count, "total_symbols": len(quotes), "last_checked_epoch": int(time.time()), "coverage_pct": round(live_count / len(quotes) * 100, 1) if quotes else 0, "note": "GSE symbols use the internal fallback until a supported GSE market-data feed is configured."}
+    return {"mode": mode, "provider": provider_label(), "live_quotes": live_count, "total_symbols": len(quotes), "last_checked_epoch": int(time.time()), "coverage_pct": round(live_count / len(quotes) * 100, 1) if quotes else 0, "note": "GSE symbols use the internal fallback until a supported GSE market-data feed is configured."}
 
 
 # Benchmarks shown on the dashboard. No fallback values are invented: if the

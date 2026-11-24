@@ -376,7 +376,7 @@ function IntelligencePage({ mode, macro }: { mode: Mode; macro: Macro | null }) 
   </>;
 }
 
-const CONFIG_LABELS: Record<string, string> = { anthropic_api_key: "AI assistant key (ANTHROPIC_API_KEY)", sec_user_agent: "SEC EDGAR identity (SEC_USER_AGENT)", job_token: "Daily job token (JOB_TOKEN)" };
+const CONFIG_LABELS: Record<string, string> = { anthropic_api_key: "AI assistant key (ANTHROPIC_API_KEY)", sec_user_agent: "SEC EDGAR identity (SEC_USER_AGENT)", job_token: "Daily job token (JOB_TOKEN)", tiingo_api_key: "US market data key (TIINGO_API_KEY)" };
 
 function SettingsPage({ mode, onNavigate }: { mode: Mode; onNavigate: (p: Page) => void }) {
   const s = useEndpoint<Status>("/api/status", mode);
@@ -403,6 +403,12 @@ function AccountData() {
   const [exportState, setExportState] = useState<{ busy?: boolean; msg?: string; err?: string }>({});
   const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(false);
   const [del, setDel] = useState<{ busy?: boolean; err?: string }>({});
+  const [accountId, setAccountId] = useState<number | null>(null);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    api<{ id: number }>("/api/auth/me", { signal: ctrl.signal }).then(u => setAccountId(u.id)).catch(() => undefined);
+    return () => ctrl.abort();
+  }, []);
   const doExport = async () => {
     setExportState({ busy: true });
     try { await download("/api/me/export", "investment-intelligence-export.json"); setExportState({ msg: "Your data export has been downloaded." }); }
@@ -417,6 +423,7 @@ function AccountData() {
     } catch (e2) { setDel({ err: describeError(e2) }); }
   };
   return <section className="card pad"><Header title="My data" eyebrow="PRIVATE TO YOUR ACCOUNT" />
+    {accountId != null && <p className="small">Your account id: <code>{accountId}</code> <span className="tiny">(the owner of a private deployment puts this in OWNER_USER_IDS on the server)</span></p>}
     <div className="row"><button className="btn" onClick={doExport} disabled={exportState.busy}>{exportState.busy ? "Preparing…" : "Export my data"}</button><span className="tiny">Downloads your account, holdings, journal, paper orders, alerts and assistant history as JSON.</span></div>
     {exportState.msg && <p className="ok-text">{exportState.msg}</p>}{exportState.err && <p className="error">{exportState.err}</p>}
     <form className="form box danger" onSubmit={doDelete}>

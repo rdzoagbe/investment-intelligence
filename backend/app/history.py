@@ -1,7 +1,8 @@
 """Daily price history and the statistics derived from it.
 
-History comes from the Yahoo Finance chart endpoint (unofficial; personal research
-use). Nothing is synthesised: when the provider is unavailable, or in demo mode,
+US stocks come from Tiingo's licensed end-of-day API when it is configured and allowed
+(see tiingo.py); other listings use the Yahoo Finance chart endpoint (unofficial; personal
+research use). Nothing is synthesised: when the provider is unavailable, or in demo mode,
 history is None and every derived statistic is reported as unavailable.
 """
 from __future__ import annotations
@@ -16,7 +17,7 @@ from math import sqrt
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 
-from . import market_data
+from . import market_data, tiingo
 
 RANGES = {"1y", "2y", "5y", "10y"}
 PROVIDER = "Yahoo Finance chart API (daily, adjusted close)"
@@ -97,6 +98,9 @@ def price_history(symbol: str, range_: str = "2y") -> PriceHistory | None:
         raise ValueError(f"range must be one of {sorted(RANGES)}")
     if os.getenv("MARKET_DATA_MODE", "live").strip().lower() == "demo":
         return None
+    licensed = _tiingo_history(symbol, range_)
+    if licensed is not None:
+        return licensed
     provider_symbol = market_data._provider_symbol(symbol)  # noqa: SLF001 - shared mapping
     if not provider_symbol:
         return None
@@ -114,6 +118,24 @@ def price_history(symbol: str, range_: str = "2y") -> PriceHistory | None:
     with _LOCK:
         _CACHE[key] = (time.time(), result)
     return result
+
+
+def _tiingo_history(symbol: str, range_: str) -> PriceHistory | None:
+    """The requested range cut from Tiingo's cached 10-year adjusted daily series (one request per ticker)."""
+    if not tiingo.ticker_for(symbol) or not tiingo.enabled():
+        return None
+    data = tiingo.daily_history(symbol)
+    if not data:
+        return None
+    dates, closes = list(data["dates"]), list(data["closes"])  # type: ignore[call-overload]
+    years = int(range_[:-1])
+    cutoff = (date.fromisoformat(dates[-1]) - timedelta(days=365 * years + years // 4 + 1)).isoformat()
+    start = next((i for i, d in enumerate(dates) if d >= cutoff), len(dates))
+    dates, closes = dates[start:], closes[start:]
+    if len(closes) < 2:
+        return None
+    splits = tuple((str(d), float(f)) for d, f in data.get("splits", []) if str(d) >= dates[0])  # type: ignore[union-attr]
+    return PriceHistory(symbol, dates, [float(c) for c in closes], "USD", provider=tiingo.HISTORY_PROVIDER, adjusted=True, splits=splits)
 
 
 def daily_returns(closes: list[float]) -> list[float]:

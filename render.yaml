@@ -32,6 +32,15 @@ services:
       # Optional: ceiling on assistant questions across ALL users per day (in-process counter).
       - key: ASSISTANT_GLOBAL_DAILY_LIMIT
         value: "500"
+      # Optional: Tiingo API key for US stock quotes and daily history (licensed API).
+      # The FREE Tiingo plan is for personal use only (data may not be shown to other people),
+      # so the key is only used when OWNER_USER_IDS is set (private site: only those accounts
+      # see data, sign-up closed) or TIINGO_LICENSE=commercial (your plan allows redistribution).
+      - key: TIINGO_API_KEY
+        sync: false
+      # Comma-separated account ids (Settings > My data shows yours). Empty = public site.
+      - key: OWNER_USER_IDS
+        sync: false
 
 databases:
   # WARNING: Render's FREE PostgreSQL plan EXPIRES about 30 days after creation. After a

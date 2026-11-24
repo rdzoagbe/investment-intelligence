@@ -15,7 +15,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 
-from . import db, userdata
+from . import db, tiingo, userdata
 from .data import ASSETS, get_asset
 from .engine import band_label, scanner, score_asset
 from .history import price_history
@@ -217,6 +217,11 @@ def maybe_run_daily_snapshot(now_utc: datetime | None = None) -> dict[str, objec
 def run_daily_job() -> dict[str, object]:
     stored = take_snapshot()
     users = db.fetch_all("SELECT DISTINCT user_id FROM alert_rules WHERE active=1 UNION SELECT DISTINCT user_id FROM journal_entries")
+    owners = tiingo.owner_ids()
+    if owners:
+        # Private mode: data is licensed for the owners only, so alerts (which quote prices) are
+        # not generated for other accounts that existed before the site was made private.
+        users = [u for u in users if str(u["user_id"]) in owners]
     created = sum(evaluate_user(int(u["user_id"])) for u in users)
     return {"snapshots_stored": stored, "users_checked": len(users), "alerts_created": created, "ran_at": int(time.time())}
 
